@@ -1,63 +1,26 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Leaf, User, LogOut, Settings, Coins } from "lucide-react";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { Leaf, User, LogOut, Home, Trophy, Mail, LayoutDashboard, Shield } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 
 export default function Header() {
-  const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const { isAuthenticated, userType, userName, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  useEffect(() => {
-    // Get initial session
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        // Fetch user profile
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .single();
-        setProfile(profileData);
-      }
-    };
-
-    getSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .single();
-        setProfile(profileData);
-      } else {
-        setProfile(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
+  const handleSignOut = () => {
+    logout();
     navigate("/");
   };
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
+
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <header className="bg-white/95 backdrop-blur-sm border-b border-primary/10 sticky top-0 z-50">
@@ -74,48 +37,83 @@ export default function Header() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
-            <Link to="#features" className="text-foreground hover:text-primary transition-colors">
-              Features
+            <Link 
+              to="/" 
+              className={cn(
+                "text-foreground hover:text-primary transition-colors flex items-center gap-1",
+                isActive("/") && "text-primary font-semibold"
+              )}
+            >
+              <Home className="h-4 w-4" />
+              Home
             </Link>
-            <Link to="#impact" className="text-foreground hover:text-primary transition-colors">
-              Impact
+            {isAuthenticated && userType === "citizen" && (
+              <Link 
+                to="/dashboard" 
+                className={cn(
+                  "text-foreground hover:text-primary transition-colors flex items-center gap-1",
+                  isActive("/dashboard") && "text-primary font-semibold"
+                )}
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </Link>
+            )}
+            {isAuthenticated && userType === "authority" && (
+              <Link 
+                to="/admin" 
+                className={cn(
+                  "text-foreground hover:text-primary transition-colors flex items-center gap-1",
+                  isActive("/admin") && "text-primary font-semibold"
+                )}
+              >
+                <Shield className="h-4 w-4" />
+                Admin
+              </Link>
+            )}
+            <Link 
+              to="/leaderboard" 
+              className={cn(
+                "text-foreground hover:text-primary transition-colors flex items-center gap-1",
+                isActive("/leaderboard") && "text-primary font-semibold"
+              )}
+            >
+              <Trophy className="h-4 w-4" />
+              Leaderboard
             </Link>
-            <Link to="#about" className="text-foreground hover:text-primary transition-colors">
-              About
-            </Link>
-            <Link to="#contact" className="text-foreground hover:text-primary transition-colors">
+            <Link 
+              to="/contact" 
+              className={cn(
+                "text-foreground hover:text-primary transition-colors flex items-center gap-1",
+                isActive("/contact") && "text-primary font-semibold"
+              )}
+            >
+              <Mail className="h-4 w-4" />
               Contact
             </Link>
           </nav>
 
           <div className="flex items-center gap-4">
-            {user ? (
+            {isAuthenticated ? (
               <div className="flex items-center gap-3">
-                {profile?.green_coins !== undefined && (
-                  <div className="flex items-center gap-1 bg-primary-light/20 rounded-full px-3 py-1">
-                    <Coins className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium text-primary">{profile.green_coins}</span>
-                  </div>
-                )}
-                
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback className="bg-primary text-primary-foreground">
-                          {getInitials(profile?.full_name || user.email || "U")}
+                          {getInitials(userName || "U")}
                         </AvatarFallback>
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56" align="end">
-                    <DropdownMenuItem onClick={() => navigate(profile?.user_type === 'authority' ? '/admin' : '/dashboard')}>
+                    <div className="px-2 py-2 text-sm">
+                      <p className="font-semibold">{userName}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{userType}</p>
+                    </div>
+                    <DropdownMenuItem onClick={() => navigate(userType === 'authority' ? '/admin' : '/dashboard')}>
                       <User className="mr-2 h-4 w-4" />
                       Dashboard
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/settings')}>
-                      <Settings className="mr-2 h-4 w-4" />
-                      Settings
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleSignOut}>
                       <LogOut className="mr-2 h-4 w-4" />
@@ -126,11 +124,13 @@ export default function Header() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <Button variant="ghost" onClick={() => navigate("/auth")}>
-                  Sign In
+                <Button variant="ghost" onClick={() => navigate("/auth?type=citizen")}>
+                  <User className="h-4 w-4 mr-2" />
+                  Citizen Login
                 </Button>
-                <Button variant="hero" onClick={() => navigate("/auth")}>
-                  Get Started
+                <Button variant="hero" onClick={() => navigate("/auth?type=authority")}>
+                  <Shield className="h-4 w-4 mr-2" />
+                  Authority Login
                 </Button>
               </div>
             )}

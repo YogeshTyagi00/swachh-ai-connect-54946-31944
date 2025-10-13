@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -24,10 +24,11 @@ export default function Dashboard() {
     description: "",
   });
 
-  if (userType !== "citizen") {
-    navigate("/");
-    return null;
-  }
+  useEffect(() => {
+    if (userType !== "citizen" && userType !== null) {
+      navigate("/");
+    }
+  }, [userType, navigate]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {

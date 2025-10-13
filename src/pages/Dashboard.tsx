@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Coins, MapPin, Award, Camera } from "lucide-react";
 import CollectionCentersMap from "@/components/maps/CollectionCentersMap";
@@ -16,7 +16,6 @@ import { wasteCategories } from "@/data/mockData";
 export default function Dashboard() {
   const { userType, userName, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [greenCoins, setGreenCoins] = useState(50);
   const [classification, setClassification] = useState<string | null>(null);
   const [reportData, setReportData] = useState({

@@ -4,14 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { User, Shield } from "lucide-react";
 
 export default function AuthForm() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { login } = useAuth();
   const [searchParams] = useSearchParams();
   const initialType = searchParams.get("type") || "citizen";

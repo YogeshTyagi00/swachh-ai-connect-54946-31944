@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertTriangle, CheckCircle, Clock, MapPin } from "lucide-react";
 import { mockComplaints } from "@/data/mockData";
@@ -15,7 +15,6 @@ import ComplaintMap from "@/components/maps/ComplaintMap";
 export default function AdminDashboard() {
   const { userType, userName, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [complaints, setComplaints] = useState(mockComplaints);
   const [showHeatmap, setShowHeatmap] = useState(false);
 

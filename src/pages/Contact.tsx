@@ -6,11 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/sonner";
 import { Mail, Phone, MapPin, Send } from "lucide-react";
 
 export default function Contact() {
-  const { toast } = useToast();
   const [formData, setFormData] = useState({
     name: "",
     email: "",

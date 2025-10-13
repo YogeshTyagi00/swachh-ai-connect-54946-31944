@@ -25,8 +25,8 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    if (userType !== "citizen" && userType !== null) {
-      navigate("/");
+    if (userType !== "citizen") {
+      navigate("/auth?type=citizen");
     }
   }, [userType, navigate]);
 

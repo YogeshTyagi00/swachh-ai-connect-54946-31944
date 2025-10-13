@@ -47,30 +47,26 @@ export default function Header() {
               <Home className="h-4 w-4" />
               Home
             </Link>
-            {isAuthenticated && userType === "citizen" && (
-              <Link 
-                to="/dashboard" 
-                className={cn(
-                  "text-foreground hover:text-primary transition-colors flex items-center gap-1",
-                  isActive("/dashboard") && "text-primary font-semibold"
-                )}
-              >
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
-              </Link>
-            )}
-            {isAuthenticated && userType === "authority" && (
-              <Link 
-                to="/admin" 
-                className={cn(
-                  "text-foreground hover:text-primary transition-colors flex items-center gap-1",
-                  isActive("/admin") && "text-primary font-semibold"
-                )}
-              >
-                <Shield className="h-4 w-4" />
-                Admin
-              </Link>
-            )}
+            <Link 
+              to="/dashboard" 
+              className={cn(
+                "text-foreground hover:text-primary transition-colors flex items-center gap-1",
+                isActive("/dashboard") && "text-primary font-semibold"
+              )}
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              Citizen Dashboard
+            </Link>
+            <Link 
+              to="/admin" 
+              className={cn(
+                "text-foreground hover:text-primary transition-colors flex items-center gap-1",
+                isActive("/admin") && "text-primary font-semibold"
+              )}
+            >
+              <Shield className="h-4 w-4" />
+              Authority Dashboard
+            </Link>
             <Link 
               to="/leaderboard" 
               className={cn(

@@ -19,8 +19,8 @@ export default function AdminDashboard() {
   const [complaints, setComplaints] = useState(mockComplaints);
 
   useEffect(() => {
-    if (userType !== "authority" && userType !== null) {
-      navigate("/");
+    if (userType !== "authority") {
+      navigate("/auth?type=authority");
     }
   }, [userType, navigate]);
 

@@ -48,26 +48,6 @@ export default function Header() {
               Home
             </Link>
             <Link 
-              to="/dashboard" 
-              className={cn(
-                "text-foreground hover:text-primary transition-colors flex items-center gap-1",
-                isActive("/dashboard") && "text-primary font-semibold"
-              )}
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              Citizen Dashboard
-            </Link>
-            <Link 
-              to="/admin" 
-              className={cn(
-                "text-foreground hover:text-primary transition-colors flex items-center gap-1",
-                isActive("/admin") && "text-primary font-semibold"
-              )}
-            >
-              <Shield className="h-4 w-4" />
-              Authority Dashboard
-            </Link>
-            <Link 
               to="/leaderboard" 
               className={cn(
                 "text-foreground hover:text-primary transition-colors flex items-center gap-1",
@@ -119,16 +99,10 @@ export default function Header() {
                 </DropdownMenu>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" onClick={() => navigate("/auth?type=citizen")}>
-                  <User className="h-4 w-4 mr-2" />
-                  Citizen Login
-                </Button>
-                <Button variant="hero" onClick={() => navigate("/auth?type=authority")}>
-                  <Shield className="h-4 w-4 mr-2" />
-                  Authority Login
-                </Button>
-              </div>
+              <Button variant="hero" onClick={() => navigate("/auth")}>
+                <User className="h-4 w-4 mr-2" />
+                Sign In
+              </Button>
             )}
           </div>
         </div>

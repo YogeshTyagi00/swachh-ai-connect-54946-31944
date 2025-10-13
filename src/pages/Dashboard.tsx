@@ -42,8 +42,7 @@ export default function Dashboard() {
       setTimeout(() => {
         setClassification(randomCategory);
         setGreenCoins(prev => prev + 10);
-        toast({
-          title: "Classification Complete! 🎯",
+        toast("Classification Complete! 🎯", {
           description: `Waste classified as ${randomCategory}. +10 Green Coins earned!`,
         });
       }, 1000);
@@ -53,8 +52,7 @@ export default function Dashboard() {
   const handleReportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setGreenCoins(prev => prev + 10);
-    toast({
-      title: "Report Submitted Successfully! 📍",
+    toast("Report Submitted Successfully! 📍", {
       description: "Thank you for keeping our city clean. +10 Green Coins earned!",
     });
     setReportData({ location: "", description: "" });

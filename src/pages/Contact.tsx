@@ -18,8 +18,7 @@ export default function Contact() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Message Sent! 📧",
+    toast("Message Sent! 📧", {
       description: "Thank you for contacting SwachhAI. We'll get back to you soon.",
     });
     setFormData({ name: "", email: "", message: "" });

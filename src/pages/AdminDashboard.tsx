@@ -33,8 +33,7 @@ export default function AdminDashboard() {
     setComplaints(complaints.map(c => 
       c.id === id ? { ...c, status: "Resolved" } : c
     ));
-    toast({
-      title: "Status Updated ✅",
+    toast("Status Updated ✅", {
       description: `Complaint ${id} has been marked as resolved.`,
     });
   };

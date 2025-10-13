@@ -27,8 +27,7 @@ export default function AuthForm() {
 
     setTimeout(() => {
       login(userType, fullName || email.split('@')[0]);
-      toast({
-        title: "Success! 🎉",
+      toast("Success! 🎉", {
         description: "Signed in successfully!",
       });
       
@@ -47,8 +46,7 @@ export default function AuthForm() {
 
     setTimeout(() => {
       login(userType, fullName);
-      toast({
-        title: "Account Created! 🎉",
+      toast("Account Created! 🎉", {
         description: "Welcome to SwachhAI!",
       });
       

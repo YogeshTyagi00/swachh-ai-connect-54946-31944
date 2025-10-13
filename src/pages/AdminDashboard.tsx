@@ -13,17 +13,22 @@ import { mockComplaints } from "@/data/mockData";
 import ComplaintMap from "@/components/maps/ComplaintMap";
 
 export default function AdminDashboard() {
-  const { userType, userName } = useAuth();
+  const { userType, userName, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [complaints, setComplaints] = useState(mockComplaints);
   const [showHeatmap, setShowHeatmap] = useState(false);
 
   useEffect(() => {
-    if (userType !== "authority") {
+    if (!isAuthenticated || userType !== "authority") {
       navigate("/auth?type=authority");
     }
-  }, [userType, navigate]);
+  }, [userType, isAuthenticated, navigate]);
+
+  // Don't render until auth is checked
+  if (!isAuthenticated || userType !== "authority") {
+    return null;
+  }
 
   const handleStatusUpdate = (id: string) => {
     setComplaints(complaints.map(c => 

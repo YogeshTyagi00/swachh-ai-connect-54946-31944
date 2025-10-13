@@ -14,7 +14,7 @@ import CollectionCentersMap from "@/components/maps/CollectionCentersMap";
 import { wasteCategories } from "@/data/mockData";
 
 export default function Dashboard() {
-  const { userType, userName } = useAuth();
+  const { userType, userName, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [greenCoins, setGreenCoins] = useState(50);
@@ -25,10 +25,15 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    if (userType !== "citizen") {
+    if (!isAuthenticated || userType !== "citizen") {
       navigate("/auth?type=citizen");
     }
-  }, [userType, navigate]);
+  }, [userType, isAuthenticated, navigate]);
+
+  // Don't render until auth is checked
+  if (!isAuthenticated || userType !== "citizen") {
+    return null;
+  }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {

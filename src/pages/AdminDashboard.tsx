@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -18,10 +18,11 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const [complaints, setComplaints] = useState(mockComplaints);
 
-  if (userType !== "authority") {
-    navigate("/");
-    return null;
-  }
+  useEffect(() => {
+    if (userType !== "authority" && userType !== null) {
+      navigate("/");
+    }
+  }, [userType, navigate]);
 
   const handleStatusUpdate = (id: string) => {
     setComplaints(complaints.map(c => 

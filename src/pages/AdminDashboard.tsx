@@ -13,10 +13,11 @@ import { mockComplaints } from "@/data/mockData";
 import ComplaintMap from "@/components/maps/ComplaintMap";
 
 export default function AdminDashboard() {
-  const { userType } = useAuth();
+  const { userType, userName } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [complaints, setComplaints] = useState(mockComplaints);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   useEffect(() => {
     if (userType !== "authority") {
@@ -56,7 +57,7 @@ export default function AdminDashboard() {
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold text-gradient-primary mb-2">Authority Dashboard</h1>
+            <h1 className="text-3xl font-bold text-gradient-primary mb-2">Welcome, {userName || "Authority"}!</h1>
             <p className="text-muted-foreground">Monitor and manage waste complaints</p>
           </div>
 
@@ -150,11 +151,22 @@ export default function AdminDashboard() {
 
           <Card className="border-primary/20">
             <CardHeader>
-              <CardTitle>Complaints Map</CardTitle>
-              <CardDescription>Geographic view of all complaints</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Complaints Map</CardTitle>
+                  <CardDescription>Geographic view of all complaints</CardDescription>
+                </div>
+                <Button
+                  variant={showHeatmap ? "hero" : "outline"}
+                  size="sm"
+                  onClick={() => setShowHeatmap(!showHeatmap)}
+                >
+                  {showHeatmap ? "Standard View" : "Heatmap View"}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <ComplaintMap complaints={complaints} />
+              <ComplaintMap complaints={complaints} showHeatmap={showHeatmap} />
             </CardContent>
           </Card>
         </div>

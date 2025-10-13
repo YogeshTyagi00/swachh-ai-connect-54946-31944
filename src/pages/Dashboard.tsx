@@ -14,7 +14,7 @@ import CollectionCentersMap from "@/components/maps/CollectionCentersMap";
 import { wasteCategories } from "@/data/mockData";
 
 export default function Dashboard() {
-  const { userType } = useAuth();
+  const { userType, userName } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [greenCoins, setGreenCoins] = useState(50);
@@ -66,7 +66,7 @@ export default function Dashboard() {
         <div className="space-y-6">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gradient-primary mb-2">Citizen Dashboard</h1>
+              <h1 className="text-3xl font-bold text-gradient-primary mb-2">Welcome, {userName || "Citizen"}!</h1>
               <p className="text-muted-foreground">Manage waste smartly, earn rewards!</p>
             </div>
             <Card className="border-primary/20">

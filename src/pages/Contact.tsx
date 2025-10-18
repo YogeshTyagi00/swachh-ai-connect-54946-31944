@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/hooks/use-toast";
 import { Mail, Phone, MapPin, Send } from "lucide-react";
 
 export default function Contact() {
@@ -18,7 +18,8 @@ export default function Contact() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast("Message Sent! 📧", {
+    toast({
+      title: "Message Sent! 📧",
       description: "Thank you for contacting SwachhAI. We'll get back to you soon.",
     });
     setFormData({ name: "", email: "", message: "" });

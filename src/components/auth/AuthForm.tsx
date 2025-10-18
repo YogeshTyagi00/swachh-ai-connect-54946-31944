@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { User, Shield } from "lucide-react";
@@ -27,7 +27,8 @@ export default function AuthForm() {
 
     setTimeout(() => {
       login(userType, fullName || email.split('@')[0]);
-      toast("Success! 🎉", {
+      toast({
+        title: "Success! 🎉",
         description: "Signed in successfully!",
       });
       
@@ -46,7 +47,8 @@ export default function AuthForm() {
 
     setTimeout(() => {
       login(userType, fullName);
-      toast("Account Created! 🎉", {
+      toast({
+        title: "Account Created! 🎉",
         description: "Welcome to SwachhAI!",
       });
       

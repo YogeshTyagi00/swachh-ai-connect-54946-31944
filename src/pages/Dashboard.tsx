@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Coins, MapPin, Award, Camera } from "lucide-react";
 import CollectionCentersMap from "@/components/maps/CollectionCentersMap";
@@ -42,7 +42,8 @@ export default function Dashboard() {
       setTimeout(() => {
         setClassification(randomCategory);
         setGreenCoins(prev => prev + 10);
-        toast("Classification Complete! 🎯", {
+        toast({
+          title: "Classification Complete! 🎯",
           description: `Waste classified as ${randomCategory}. +10 Green Coins earned!`,
         });
       }, 1000);
@@ -52,7 +53,8 @@ export default function Dashboard() {
   const handleReportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setGreenCoins(prev => prev + 10);
-    toast("Report Submitted Successfully! 📍", {
+    toast({
+      title: "Report Submitted Successfully! 📍",
       description: "Thank you for keeping our city clean. +10 Green Coins earned!",
     });
     setReportData({ location: "", description: "" });

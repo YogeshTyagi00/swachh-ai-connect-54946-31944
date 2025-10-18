@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertTriangle, CheckCircle, Clock, MapPin } from "lucide-react";
 import { mockComplaints } from "@/data/mockData";
@@ -33,7 +33,8 @@ export default function AdminDashboard() {
     setComplaints(complaints.map(c => 
       c.id === id ? { ...c, status: "Resolved" } : c
     ));
-    toast("Status Updated ✅", {
+    toast({
+      title: "Status Updated ✅",
       description: `Complaint ${id} has been marked as resolved.`,
     });
   };

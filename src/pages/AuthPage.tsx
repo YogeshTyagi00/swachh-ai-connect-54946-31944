@@ -1,23 +1,32 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import AuthForm from "@/components/auth/AuthForm";
 
 export default function AuthPage() {
   const navigate = useNavigate();
 
+  const { isAuthenticated, userType } = useAuth();
+
   useEffect(() => {
-    // Check if user is already logged in
+    // If using our app auth, redirect to the correct dashboard
+    if (isAuthenticated) {
+      navigate(userType === "authority" ? "/admin" : "/dashboard");
+      return;
+    }
+
+    // Additionally, check backend session (if using backend auth elsewhere)
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        // Default to home if backend session exists but local auth not set
         navigate("/");
       }
     };
 
     checkAuth();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         navigate("/");
@@ -25,7 +34,7 @@ export default function AuthPage() {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [isAuthenticated, userType, navigate]);
 
   return <AuthForm />;
 }

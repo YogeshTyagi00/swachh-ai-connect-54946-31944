@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Toast,
@@ -5,14 +6,14 @@ import {
   ToastDescription,
   ToastTitle,
   ToastViewport,
-  ToastProvider,
 } from "@/components/ui/toast";
+import * as ToastPrimitives from "@radix-ui/react-toast";
 
 export function Toaster() {
   const { toasts } = useToast();
 
   return (
-    <ToastProvider swipeDirection="right">
+    <ToastPrimitives.Provider swipeDirection="right">
       {toasts.map(({ id, title, description, action, ...props }) => (
         <Toast key={id} {...props}>
           <div className="grid gap-1">
@@ -24,6 +25,6 @@ export function Toaster() {
         </Toast>
       ))}
       <ToastViewport />
-    </ToastProvider>
+    </ToastPrimitives.Provider>
   );
 }

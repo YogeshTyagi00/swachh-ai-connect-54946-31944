@@ -11,7 +11,7 @@ import { User, Shield } from "lucide-react";
 
 export default function AuthForm() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, signup } = useAuth();
   const [searchParams] = useSearchParams();
   const initialType = searchParams.get("type") || "citizen";
   
@@ -25,17 +25,25 @@ export default function AuthForm() {
     e.preventDefault();
     setLoading(true);
 
-    setTimeout(() => {
-      login(userType, fullName || email.split('@')[0]);
-      toast({
-        title: "Success! 🎉",
-        description: "Signed in successfully!",
-      });
-      
-      if (userType === "authority") {
-        navigate("/admin-dashboard");
-      } else {
-        navigate("/citizen-dashboard");
+    setTimeout(async () => {
+      try {
+        await login(email, password, userType === "authority" ? "admin" : "citizen");
+        toast({
+          title: "Success! 🎉",
+          description: "Signed in successfully!",
+        });
+        
+        if (userType === "authority") {
+          navigate("/admin-dashboard");
+        } else {
+          navigate("/citizen-dashboard");
+        }
+      } catch (error) {
+        toast({
+          title: "Login failed",
+          description: "Please try again.",
+          variant: "destructive",
+        });
       }
       setLoading(false);
     }, 1000);
@@ -45,17 +53,25 @@ export default function AuthForm() {
     e.preventDefault();
     setLoading(true);
 
-    setTimeout(() => {
-      login(userType, fullName);
-      toast({
-        title: "Account Created! 🎉",
-        description: "Welcome to SwachhAI!",
-      });
-      
-      if (userType === "authority") {
-        navigate("/admin-dashboard");
-      } else {
-        navigate("/citizen-dashboard");
+    setTimeout(async () => {
+      try {
+        await signup(fullName, email, password, userType === "authority" ? "admin" : "citizen");
+        toast({
+          title: "Account Created! 🎉",
+          description: "Welcome to SwachhAI!",
+        });
+        
+        if (userType === "authority") {
+          navigate("/admin-dashboard");
+        } else {
+          navigate("/citizen-dashboard");
+        }
+      } catch (error) {
+        toast({
+          title: "Signup failed",
+          description: "Please try again.",
+          variant: "destructive",
+        });
       }
       setLoading(false);
     }, 1000);

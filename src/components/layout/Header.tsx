@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 export default function Header() {
-  const { isAuthenticated, userType, userName, logout } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -77,17 +77,17 @@ export default function Header() {
                     <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback className="bg-primary text-primary-foreground">
-                          {getInitials(userName || "U")}
+                          {getInitials(user?.name || "U")}
                         </AvatarFallback>
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56" align="end">
                     <div className="px-2 py-2 text-sm">
-                      <p className="font-semibold">{userName}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{userType}</p>
+                      <p className="font-semibold">{user?.name}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
                     </div>
-                    <DropdownMenuItem onClick={() => navigate(userType === 'authority' ? '/admin-dashboard' : '/citizen-dashboard')}>
+                    <DropdownMenuItem onClick={() => navigate(user?.role === 'admin' ? '/admin-dashboard' : '/citizen-dashboard')}>
                       <User className="mr-2 h-4 w-4" />
                       Dashboard
                     </DropdownMenuItem>

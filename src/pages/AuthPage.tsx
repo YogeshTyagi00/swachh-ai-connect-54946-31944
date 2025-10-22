@@ -7,12 +7,12 @@ import AuthForm from "@/components/auth/AuthForm";
 export default function AuthPage() {
   const navigate = useNavigate();
 
-  const { isAuthenticated, userType } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   useEffect(() => {
     // If using our app auth, redirect to the correct dashboard
-    if (isAuthenticated) {
-      navigate(userType === "authority" ? "/admin-dashboard" : "/citizen-dashboard");
+    if (isAuthenticated && user) {
+      navigate(user.role === "admin" ? "/admin-dashboard" : "/citizen-dashboard");
       return;
     }
 
@@ -34,7 +34,7 @@ export default function AuthPage() {
     });
 
     return () => subscription.unsubscribe();
-  }, [isAuthenticated, userType, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
   return <AuthForm />;
 }

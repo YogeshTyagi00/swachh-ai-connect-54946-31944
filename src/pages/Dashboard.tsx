@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Coins, MapPin, Award, Camera } from "lucide-react";
 import CollectionCentersMap from "@/components/maps/CollectionCentersMap";
 import { wasteCategories } from "@/data/mockData";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
   const { userType, userName, isAuthenticated } = useAuth();
@@ -23,16 +24,12 @@ export default function Dashboard() {
     description: "",
   });
 
+  // Simulate loading of mock data to avoid blank screen
+  const [loadingData, setLoadingData] = useState(true);
   useEffect(() => {
-    if (!isAuthenticated || userType !== "citizen") {
-      navigate("/auth?type=citizen");
-    }
-  }, [userType, isAuthenticated, navigate]);
-
-  // Don't render until auth is checked
-  if (!isAuthenticated || userType !== "citizen") {
-    return null;
-  }
+    const t = setTimeout(() => setLoadingData(false), 600);
+    return () => clearTimeout(t);
+  }, []);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -67,6 +64,22 @@ export default function Dashboard() {
       <Header />
       
       <main className="flex-1 container mx-auto px-4 py-8">
+        {loadingData ? (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <Skeleton className="h-8 w-48 mb-2" />
+                <Skeleton className="h-4 w-64" />
+              </div>
+              <Skeleton className="h-20 w-40" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Skeleton className="h-72" />
+              <Skeleton className="h-72" />
+            </div>
+            <Skeleton className="h-96" />
+          </div>
+        ) : (
         <div className="space-y-6">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
@@ -191,6 +204,7 @@ export default function Dashboard() {
             </Button>
           </div>
         </div>
+        )}
       </main>
 
       <Footer />

@@ -33,9 +33,9 @@ export default function AuthForm() {
       });
       
       if (userType === "authority") {
-        navigate("/admin");
+        navigate("/admin-dashboard");
       } else {
-        navigate("/dashboard");
+        navigate("/citizen-dashboard");
       }
       setLoading(false);
     }, 1000);
@@ -53,9 +53,9 @@ export default function AuthForm() {
       });
       
       if (userType === "authority") {
-        navigate("/admin");
+        navigate("/admin-dashboard");
       } else {
-        navigate("/dashboard");
+        navigate("/citizen-dashboard");
       }
       setLoading(false);
     }, 1000);

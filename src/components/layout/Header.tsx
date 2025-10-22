@@ -87,7 +87,7 @@ export default function Header() {
                       <p className="font-semibold">{userName}</p>
                       <p className="text-xs text-muted-foreground capitalize">{userType}</p>
                     </div>
-                    <DropdownMenuItem onClick={() => navigate(userType === 'authority' ? '/admin' : '/dashboard')}>
+                    <DropdownMenuItem onClick={() => navigate(userType === 'authority' ? '/admin-dashboard' : '/citizen-dashboard')}>
                       <User className="mr-2 h-4 w-4" />
                       Dashboard
                     </DropdownMenuItem>

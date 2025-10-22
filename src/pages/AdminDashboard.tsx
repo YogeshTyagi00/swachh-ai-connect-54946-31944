@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,23 +11,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import { AlertTriangle, CheckCircle, Clock, MapPin } from "lucide-react";
 import { mockComplaints } from "@/data/mockData";
 import ComplaintMap from "@/components/maps/ComplaintMap";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AdminDashboard() {
   const { userType, userName, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
+  
   const [complaints, setComplaints] = useState(mockComplaints);
   const [showHeatmap, setShowHeatmap] = useState(false);
 
+  // Simulate loading of mock data to avoid blank screen
+  const [loadingData, setLoadingData] = useState(true);
   useEffect(() => {
-    if (!isAuthenticated || userType !== "authority") {
-      navigate("/auth?type=authority");
-    }
-  }, [userType, isAuthenticated, navigate]);
-
-  // Don't render until auth is checked
-  if (!isAuthenticated || userType !== "authority") {
-    return null;
-  }
+    const t = setTimeout(() => setLoadingData(false), 600);
+    return () => clearTimeout(t);
+  }, []);
 
   const handleStatusUpdate = (id: string) => {
     setComplaints(complaints.map(c => 
@@ -59,6 +56,21 @@ export default function AdminDashboard() {
       <Header />
       
       <main className="flex-1 container mx-auto px-4 py-8">
+        {loadingData ? (
+          <div className="space-y-6">
+            <div>
+              <Skeleton className="h-8 w-64 mb-2" />
+              <Skeleton className="h-4 w-72" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Skeleton className="h-28" />
+              <Skeleton className="h-28" />
+              <Skeleton className="h-28" />
+            </div>
+            <Skeleton className="h-80" />
+            <Skeleton className="h-96" />
+          </div>
+        ) : (
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-gradient-primary mb-2">Welcome, {userName || "Authority"}!</h1>
@@ -174,6 +186,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+        )}
       </main>
 
       <Footer />

@@ -12,7 +12,7 @@ export default function AuthPage() {
   useEffect(() => {
     // If using our app auth, redirect to the correct dashboard
     if (isAuthenticated) {
-      navigate(userType === "authority" ? "/admin" : "/dashboard");
+      navigate(userType === "authority" ? "/admin-dashboard" : "/citizen-dashboard");
       return;
     }
 

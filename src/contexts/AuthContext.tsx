@@ -6,6 +6,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   userType: UserType;
   userName: string;
+  initialized: boolean;
   login: (type: UserType, name: string) => void;
   logout: () => void;
 }
@@ -16,6 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userType, setUserType] = useState<UserType>(null);
   const [userName, setUserName] = useState("");
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     const storedAuth = localStorage.getItem("swachhaiAuth");
@@ -25,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserType(type);
       setUserName(name);
     }
+    setInitialized(true);
   }, []);
 
   const login = (type: UserType, name: string) => {
@@ -42,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, userType, userName, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, userType, userName, initialized, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

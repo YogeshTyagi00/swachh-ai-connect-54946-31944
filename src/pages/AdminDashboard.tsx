@@ -3,6 +3,7 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, FileText, CheckCircle2, Clock } from "lucide-react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const ReportsTable = lazy(() => import("@/components/dashboard/admin/ReportsTable"));
 const GreenCoinsManager = lazy(() => import("@/components/dashboard/admin/GreenCoinsManager"));
@@ -67,25 +68,33 @@ export default function AdminDashboard() {
         </div>
 
         <div className="space-y-6">
-          <Suspense fallback={<Skeleton className="h-96" />}>
-            <AdminHeatmap />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<Skeleton className="h-96" />}>
+              <AdminHeatmap />
+            </Suspense>
+          </ErrorBoundary>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
-              <Suspense fallback={<Skeleton className="h-96" />}>
-                <ReportsTable />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<Skeleton className="h-96" />}>
+                  <ReportsTable />
+                </Suspense>
+              </ErrorBoundary>
               
-              <Suspense fallback={<Skeleton className="h-64" />}>
-                <OverviewCharts />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<Skeleton className="h-64" />}>
+                  <OverviewCharts />
+                </Suspense>
+              </ErrorBoundary>
             </div>
 
             <div className="space-y-6">
-              <Suspense fallback={<Skeleton className="h-96" />}>
-                <GreenCoinsManager />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<Skeleton className="h-96" />}>
+                  <GreenCoinsManager />
+                </Suspense>
+              </ErrorBoundary>
             </div>
           </div>
         </div>

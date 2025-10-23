@@ -11,6 +11,7 @@ export interface GreenCoinsTransaction {
 export interface Report {
   id: string;
   userId: string;
+  title?: string;
   description: string;
   location: string;
   imageUrl?: string;

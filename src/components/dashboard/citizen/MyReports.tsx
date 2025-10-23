@@ -19,9 +19,13 @@ export default function MyReports() {
   const [submitting, setSubmitting] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState({
+    title: "",
     description: "",
     location: "",
+    latitude: 0,
+    longitude: 0,
   });
+  const [detectingLocation, setDetectingLocation] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -32,6 +36,42 @@ export default function MyReports() {
     }
   }, [user]);
 
+  const detectLocation = () => {
+    setDetectingLocation(true);
+    if (!navigator.geolocation) {
+      toast({
+        title: "Location not supported",
+        description: "Your browser doesn't support geolocation.",
+        variant: "destructive",
+      });
+      setDetectingLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData({
+          ...formData,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        toast({
+          title: "Location detected!",
+          description: `Lat: ${position.coords.latitude.toFixed(4)}, Lng: ${position.coords.longitude.toFixed(4)}`,
+        });
+        setDetectingLocation(false);
+      },
+      (error) => {
+        toast({
+          title: "Location detection failed",
+          description: "Please enter location manually.",
+          variant: "destructive",
+        });
+        setDetectingLocation(false);
+      }
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -39,10 +79,11 @@ export default function MyReports() {
     try {
       const newReport = await mockApi.submitReport({
         userId: user!.id,
+        title: formData.title,
         description: formData.description,
         location: formData.location,
         status: "pending",
-        coordinates: [28.5355 + Math.random() * 0.01, 77.3910 + Math.random() * 0.01],
+        coordinates: [formData.latitude || 28.6139, formData.longitude || 77.209],
       });
 
       setReports([newReport, ...reports]);
@@ -51,7 +92,7 @@ export default function MyReports() {
         title: "Report Submitted! 🎉",
         description: "You earned 10 Green Coins for reporting!",
       });
-      setFormData({ description: "", location: "" });
+      setFormData({ title: "", description: "", location: "", latitude: 0, longitude: 0 });
       setIsOpen(false);
     } catch (error) {
       toast({
@@ -110,7 +151,17 @@ export default function MyReports() {
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
+                  <Label htmlFor="title">Title</Label>
+                  <Input
+                    id="title"
+                    placeholder="e.g., Overflowing garbage bin"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location Name</Label>
                   <Input
                     id="location"
                     placeholder="e.g., MG Road, Sector 15"
@@ -118,6 +169,35 @@ export default function MyReports() {
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Coordinates</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={detectLocation}
+                    disabled={detectingLocation}
+                  >
+                    <MapPin className="h-4 w-4 mr-2" />
+                    {detectingLocation ? "Detecting..." : "Use My Current Location"}
+                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="Latitude"
+                      value={formData.latitude || ""}
+                      onChange={(e) => setFormData({ ...formData, latitude: parseFloat(e.target.value) || 0 })}
+                    />
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="Longitude"
+                      value={formData.longitude || ""}
+                      onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>

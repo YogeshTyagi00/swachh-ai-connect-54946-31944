@@ -7,6 +7,7 @@ import { Users, FileText, CheckCircle2, Clock } from "lucide-react";
 const ReportsTable = lazy(() => import("@/components/dashboard/admin/ReportsTable"));
 const GreenCoinsManager = lazy(() => import("@/components/dashboard/admin/GreenCoinsManager"));
 const OverviewCharts = lazy(() => import("@/components/dashboard/admin/OverviewCharts"));
+const AdminHeatmap = lazy(() => import("@/components/admin/AdminHeatmap"));
 
 export default function AdminDashboard() {
   return (
@@ -65,21 +66,27 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <Suspense fallback={<Skeleton className="h-96" />}>
-              <ReportsTable />
-            </Suspense>
-            
-            <Suspense fallback={<Skeleton className="h-64" />}>
-              <OverviewCharts />
-            </Suspense>
-          </div>
+        <div className="space-y-6">
+          <Suspense fallback={<Skeleton className="h-96" />}>
+            <AdminHeatmap />
+          </Suspense>
 
-          <div className="space-y-6">
-            <Suspense fallback={<Skeleton className="h-96" />}>
-              <GreenCoinsManager />
-            </Suspense>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <Suspense fallback={<Skeleton className="h-96" />}>
+                <ReportsTable />
+              </Suspense>
+              
+              <Suspense fallback={<Skeleton className="h-64" />}>
+                <OverviewCharts />
+              </Suspense>
+            </div>
+
+            <div className="space-y-6">
+              <Suspense fallback={<Skeleton className="h-96" />}>
+                <GreenCoinsManager />
+              </Suspense>
+            </div>
           </div>
         </div>
       </main>

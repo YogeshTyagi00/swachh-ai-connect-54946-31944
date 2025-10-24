@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Leaf } from "lucide-react";
+import { Leaf, User, Shield } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState<"citizen" | "admin">("citizen");
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -22,12 +23,12 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(formData.email, formData.password, "citizen");
+      await login(formData.email, formData.password, role);
       toast({
         title: "Welcome back! 🎉",
         description: "Login successful",
       });
-      navigate("/citizen-dashboard");
+      navigate(role === "admin" ? "/admin-dashboard" : "/citizen-dashboard");
     } catch (error) {
       toast({
         title: "Login failed",
@@ -52,6 +53,30 @@ export default function Login() {
           <CardDescription>स्वच्छ भारत - Clean & Green India</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-6">
+            <Label className="mb-3 block">Login as:</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                type="button"
+                variant={role === "citizen" ? "default" : "outline"}
+                onClick={() => setRole("citizen")}
+                className="flex items-center gap-2"
+              >
+                <User className="h-4 w-4" />
+                Citizen
+              </Button>
+              <Button
+                type="button"
+                variant={role === "admin" ? "default" : "outline"}
+                onClick={() => setRole("admin")}
+                className="flex items-center gap-2"
+              >
+                <Shield className="h-4 w-4" />
+                Admin
+              </Button>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

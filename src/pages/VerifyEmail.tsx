@@ -35,7 +35,7 @@ export default function VerifyEmail() {
 
       // Simulate verification (in production, verify with backend)
       if (verificationCode.length === 6) {
-        await signup(name, email, password, "citizen");
+        await signup(name, email, password);
         sessionStorage.removeItem("pendingSignup");
         
         toast({

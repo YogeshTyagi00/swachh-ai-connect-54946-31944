@@ -55,7 +55,7 @@ export default function AuthForm() {
 
     setTimeout(async () => {
       try {
-        await signup(fullName, email, password, userType === "authority" ? "admin" : "citizen");
+        await signup(fullName, email, password);
         toast({
           title: "Account Created! 🎉",
           description: "Welcome to SwachhAI!",

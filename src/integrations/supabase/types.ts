@@ -104,6 +104,44 @@ export type Database = {
         }
         Relationships: []
       }
+      green_coins_transactions: {
+        Row: {
+          action: string
+          coins: number
+          created_at: string | null
+          id: string
+          related_report_id: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          coins: number
+          created_at?: string | null
+          id?: string
+          related_report_id?: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          coins?: number
+          created_at?: string | null
+          id?: string
+          related_report_id?: string | null
+          transaction_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "green_coins_transactions_related_report_id_fkey"
+            columns: ["related_report_id"]
+            isOneToOne: false
+            referencedRelation: "complaints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -137,6 +175,86 @@ export type Database = {
           updated_at?: string
           user_id?: string
           user_type?: Database["public"]["Enums"]["user_type"]
+        }
+        Relationships: []
+      }
+      reward_redemptions: {
+        Row: {
+          id: string
+          redeemed_at: string | null
+          reward_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          redeemed_at?: string | null
+          reward_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          redeemed_at?: string | null
+          reward_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reward_redemptions_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "rewards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rewards: {
+        Row: {
+          available: boolean | null
+          cost_in_coins: number
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          title: string
+        }
+        Insert: {
+          available?: boolean | null
+          cost_in_coins: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          title: string
+        }
+        Update: {
+          available?: boolean | null
+          cost_in_coins?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -195,9 +313,26 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      update_user_coins: {
+        Args: {
+          _action: string
+          _coins: number
+          _report_id?: string
+          _type: string
+          _user_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
+      app_role: "citizen" | "admin"
       complaint_status: "pending" | "in_progress" | "resolved"
       user_type: "citizen" | "authority"
       waste_category: "biodegradable" | "recyclable" | "hazardous" | "general"
@@ -328,6 +463,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["citizen", "admin"],
       complaint_status: ["pending", "in_progress", "resolved"],
       user_type: ["citizen", "authority"],
       waste_category: ["biodegradable", "recyclable", "hazardous", "general"],

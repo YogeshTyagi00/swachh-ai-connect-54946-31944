@@ -114,7 +114,6 @@ export default function MyReports() {
         setUploadingImage(false);
       }
 
-      // Submit to Supabase
       const newReport = await supabaseService.submitReport({
         userId: user!.id,
         title: formData.title,
@@ -124,25 +123,6 @@ export default function MyReports() {
         longitude: formData.longitude || 77.209,
         imageUrl,
       });
-
-      // Also send to external backend
-      try {
-        await fetch("https://civic-bot-backend.onrender.com/api/reports/submit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: user!.id,
-            title: formData.title,
-            description: formData.description,
-            location: formData.location,
-            latitude: formData.latitude || 28.6139,
-            longitude: formData.longitude || 77.209,
-            imageUrl,
-          }),
-        });
-      } catch (externalError) {
-        console.error("External API error:", externalError);
-      }
 
       setReports([newReport, ...reports]);
       toast({

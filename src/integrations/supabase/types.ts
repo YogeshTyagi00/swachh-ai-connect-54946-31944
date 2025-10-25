@@ -67,7 +67,6 @@ export type Database = {
           latitude: number
           location_name: string | null
           longitude: number
-          priority: string | null
           status: Database["public"]["Enums"]["complaint_status"]
           title: string
           updated_at: string
@@ -83,7 +82,6 @@ export type Database = {
           latitude: number
           location_name?: string | null
           longitude: number
-          priority?: string | null
           status?: Database["public"]["Enums"]["complaint_status"]
           title: string
           updated_at?: string
@@ -99,7 +97,6 @@ export type Database = {
           latitude?: number
           location_name?: string | null
           longitude?: number
-          priority?: string | null
           status?: Database["public"]["Enums"]["complaint_status"]
           title?: string
           updated_at?: string

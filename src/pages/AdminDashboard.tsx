@@ -1,10 +1,9 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy } from "react";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, FileText, CheckCircle2, Clock } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { supabaseService } from "@/services/supabaseService";
 
 const ReportsTable = lazy(() => import("@/components/dashboard/admin/ReportsTable"));
 const GreenCoinsManager = lazy(() => import("@/components/dashboard/admin/GreenCoinsManager"));
@@ -12,21 +11,6 @@ const OverviewCharts = lazy(() => import("@/components/dashboard/admin/OverviewC
 const AdminHeatmap = lazy(() => import("@/components/admin/AdminHeatmap"));
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalReports: 0,
-    resolvedReports: 0,
-    pendingReports: 0,
-  });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabaseService.getAdminStats().then((data) => {
-      setStats(data);
-      setLoading(false);
-    });
-  }, []);
-
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader />
@@ -44,14 +28,8 @@ export default function AdminDashboard() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <>
-                  <div className="text-2xl font-bold">{stats.totalUsers}</div>
-                  <p className="text-xs text-muted-foreground">Registered citizens</p>
-                </>
-              )}
+              <div className="text-2xl font-bold">2,543</div>
+              <p className="text-xs text-muted-foreground">+12% from last month</p>
             </CardContent>
           </Card>
 
@@ -61,14 +39,8 @@ export default function AdminDashboard() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <>
-                  <div className="text-2xl font-bold">{stats.totalReports}</div>
-                  <p className="text-xs text-muted-foreground">All submissions</p>
-                </>
-              )}
+              <div className="text-2xl font-bold">486</div>
+              <p className="text-xs text-muted-foreground">+8% from last month</p>
             </CardContent>
           </Card>
 
@@ -78,19 +50,8 @@ export default function AdminDashboard() {
               <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <>
-                  <div className="text-2xl font-bold">{stats.resolvedReports}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {stats.totalReports > 0 
-                      ? `${Math.round((stats.resolvedReports / stats.totalReports) * 100)}% resolution rate`
-                      : "No reports yet"
-                    }
-                  </p>
-                </>
-              )}
+              <div className="text-2xl font-bold">342</div>
+              <p className="text-xs text-muted-foreground">70% resolution rate</p>
             </CardContent>
           </Card>
 
@@ -100,14 +61,8 @@ export default function AdminDashboard() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <>
-                  <div className="text-2xl font-bold">{stats.pendingReports}</div>
-                  <p className="text-xs text-muted-foreground">Needs attention</p>
-                </>
-              )}
+              <div className="text-2xl font-bold">144</div>
+              <p className="text-xs text-muted-foreground">Needs attention</p>
             </CardContent>
           </Card>
         </div>

@@ -2,19 +2,19 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { supabaseService } from "@/services/supabaseService";
+import { mockApi } from "@/services/mockService";
 import { Coins, Plus, Minus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface User {
   id: string;
-  user_id: string;
-  full_name: string;
+  name: string;
   email: string;
-  green_coins: number;
+  greenCoins: number;
+  active: boolean;
 }
 
 export default function GreenCoinsManager() {
@@ -27,7 +27,7 @@ export default function GreenCoinsManager() {
   const [adjustType, setAdjustType] = useState<"add" | "deduct">("add");
 
   useEffect(() => {
-    supabaseService.getAllUsers().then((data) => {
+    mockApi.getAllUsers().then((data) => {
       setUsers(data);
       setLoading(false);
     });
@@ -39,15 +39,15 @@ export default function GreenCoinsManager() {
     const adjustAmount = adjustType === "add" ? parseInt(amount) : -parseInt(amount);
 
     try {
-      await supabaseService.adjustUserCoins(selectedUser.user_id, adjustAmount, reason);
+      await mockApi.adjustUserCoins(selectedUser.id, adjustAmount, reason);
       setUsers(
         users.map((u) =>
-          u.id === selectedUser.id ? { ...u, green_coins: u.green_coins + adjustAmount } : u
+          u.id === selectedUser.id ? { ...u, greenCoins: u.greenCoins + adjustAmount } : u
         )
       );
       toast({
         title: "Coins Adjusted ✅",
-        description: `${adjustType === "add" ? "Added" : "Deducted"} ${Math.abs(adjustAmount)} coins ${adjustType === "add" ? "to" : "from"} ${selectedUser.full_name}`,
+        description: `${adjustType === "add" ? "Added" : "Deducted"} ${Math.abs(adjustAmount)} coins ${adjustType === "add" ? "to" : "from"} ${selectedUser.name}`,
       });
       setIsOpen(false);
       setAmount("");
@@ -94,11 +94,11 @@ export default function GreenCoinsManager() {
           {users.map((user) => (
             <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg">
               <div className="flex-1">
-                <p className="font-semibold">{user.full_name}</p>
+                <p className="font-semibold">{user.name}</p>
                 <p className="text-sm text-muted-foreground">{user.email}</p>
                 <div className="flex items-center gap-1 text-sm text-primary mt-1">
                   <Coins className="h-3 w-3" />
-                  {user.green_coins} coins
+                  {user.greenCoins} coins
                 </div>
               </div>
               <div className="flex gap-2">
@@ -120,7 +120,7 @@ export default function GreenCoinsManager() {
                 {adjustType === "add" ? "Add" : "Deduct"} Green Coins
               </DialogTitle>
               <DialogDescription>
-                {adjustType === "add" ? "Add coins to" : "Deduct coins from"} {selectedUser?.full_name}'s account
+                {adjustType === "add" ? "Add coins to" : "Deduct coins from"} {selectedUser?.name}'s account
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">

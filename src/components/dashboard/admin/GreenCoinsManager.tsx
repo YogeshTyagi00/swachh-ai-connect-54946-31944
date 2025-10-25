@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { mockApi } from "@/services/mockService";
+import { supabaseService } from "@/services/supabaseService";
 import { Coins, Plus, Minus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -27,10 +27,23 @@ export default function GreenCoinsManager() {
   const [adjustType, setAdjustType] = useState<"add" | "deduct">("add");
 
   useEffect(() => {
-    mockApi.getAllUsers().then((data) => {
-      setUsers(data);
-      setLoading(false);
-    });
+    const fetchUsers = async () => {
+      try {
+        const data = await supabaseService.getAllUsers();
+        setUsers(data.map((u: any) => ({
+          id: u.user_id,
+          name: u.full_name,
+          email: u.email,
+          greenCoins: u.green_coins,
+          active: true
+        })));
+      } catch (error) {
+        console.error("Failed to fetch users:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUsers();
   }, []);
 
   const handleAdjust = async () => {
@@ -39,7 +52,7 @@ export default function GreenCoinsManager() {
     const adjustAmount = adjustType === "add" ? parseInt(amount) : -parseInt(amount);
 
     try {
-      await mockApi.adjustUserCoins(selectedUser.id, adjustAmount, reason);
+      await supabaseService.adjustUserCoins(selectedUser.id, adjustAmount, reason);
       setUsers(
         users.map((u) =>
           u.id === selectedUser.id ? { ...u, greenCoins: u.greenCoins + adjustAmount } : u

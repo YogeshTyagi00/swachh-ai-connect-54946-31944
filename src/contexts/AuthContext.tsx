@@ -33,17 +33,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUserData = async (userId: string) => {
     try {
       const [profileResult, roleResult] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", userId).single(),
-        supabase.from("user_roles").select("role").eq("user_id", userId).single()
+        supabase.from("profiles" as any).select("*").eq("user_id", userId).single(),
+        supabase.from("user_roles" as any).select("role").eq("user_id", userId).single()
       ]);
 
       if (profileResult.data && roleResult.data) {
+        const profile = profileResult.data as any;
+        const role = roleResult.data as any;
         return {
           id: userId,
-          name: profileResult.data.full_name,
-          email: profileResult.data.email,
-          role: roleResult.data.role as UserRole,
-          greenCoins: profileResult.data.green_coins
+          name: profile.full_name,
+          email: profile.email,
+          role: role.role as UserRole,
+          greenCoins: profile.green_coins
         };
       }
     } catch (error) {

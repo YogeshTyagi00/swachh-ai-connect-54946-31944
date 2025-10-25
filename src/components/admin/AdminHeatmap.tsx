@@ -54,32 +54,22 @@ export default function AdminHeatmap() {
 
   const fetchReports = async () => {
     try {
-      const { data, error } = await supabase
-        .from("complaints")
-        .select(`
-          id,
-          latitude,
-          longitude,
-          title,
-          description,
-          status,
-          created_at,
-          location_name,
-          user_id
-        `)
+      const { data: complaints, error } = await supabase
+        .from("complaints" as any)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      const userIds = [...new Set(data?.map(r => r.user_id) || [])];
+      const userIds = [...new Set((complaints as any)?.map((r: any) => r.user_id) || [])];
       const { data: profiles } = await supabase
-        .from("profiles")
+        .from("profiles" as any)
         .select("user_id, full_name")
         .in("user_id", userIds);
 
-      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+      const profileMap = new Map((profiles as any)?.map((p: any) => [p.user_id, p]) || []);
 
-      const reportsWithProfiles = data?.map(report => ({
+      const reportsWithProfiles = (complaints as any)?.map((report: any) => ({
         ...report,
         profiles: profileMap.get(report.user_id) || { full_name: "Unknown" }
       })) || [];

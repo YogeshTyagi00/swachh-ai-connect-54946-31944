@@ -20,10 +20,11 @@ interface Report {
   location_name: string | null;
   latitude: number | null;
   longitude: number | null;
-  status: "pending" | "in-progress" | "resolved";
+  status: "pending" | "in_progress" | "resolved";
   coins_earned: number;
   created_at: string;
   image_url: string;
+  priority?: "low" | "medium" | "high";
 }
 
 export default function MyReports() {
@@ -38,6 +39,7 @@ export default function MyReports() {
     location: "",
     latitude: 0,
     longitude: 0,
+    priority: "medium" as "low" | "medium" | "high",
   });
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -122,6 +124,7 @@ export default function MyReports() {
         latitude: formData.latitude || 28.6139,
         longitude: formData.longitude || 77.209,
         imageUrl,
+        priority: formData.priority,
       });
 
       setReports([newReport, ...reports]);
@@ -129,7 +132,7 @@ export default function MyReports() {
         title: "Report Submitted! 🎉",
         description: "Your report is being reviewed. You'll earn coins once resolved!",
       });
-      setFormData({ title: "", description: "", location: "", latitude: 0, longitude: 0 });
+      setFormData({ title: "", description: "", location: "", latitude: 0, longitude: 0, priority: "medium" });
       setImageFile(null);
       setIsOpen(false);
     } catch (error) {
@@ -148,7 +151,7 @@ export default function MyReports() {
     switch (status) {
       case "resolved":
         return <Badge className="bg-green-500/10 text-green-700">Resolved</Badge>;
-      case "in-progress":
+      case "in_progress":
         return <Badge className="bg-orange-500/10 text-orange-700">In Progress</Badge>;
       default:
         return <Badge className="bg-yellow-500/10 text-yellow-700">Pending</Badge>;
@@ -248,6 +251,19 @@ export default function MyReports() {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="priority">Priority Level</Label>
+                  <select
+                    id="priority"
+                    value={formData.priority}
+                    onChange={(e) => setFormData({ ...formData, priority: e.target.value as "low" | "medium" | "high" })}
+                    className="w-full px-3 py-2 border rounded-md"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="image">Image (Optional)</Label>

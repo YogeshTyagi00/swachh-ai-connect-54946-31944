@@ -24,7 +24,7 @@ export function Toaster() {
           <ToastClose />
         </Toast>
       ))}
-      <ToastViewport className="fixed top-4 left-1/2 -translate-x-1/2 flex flex-col gap-2 w-full max-w-sm z-[100]" />
+      <ToastViewport/>
     </ToastPrimitives.Provider>
   );
 }

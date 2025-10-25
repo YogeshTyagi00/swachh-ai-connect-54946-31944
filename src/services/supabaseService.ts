@@ -16,6 +16,7 @@ export interface Report {
   location_name: string | null;
   image_url: string;
   status: "pending" | "in-progress" | "resolved";
+  priority: string;
   created_at: string;
   coins_earned: number;
   latitude: number | null;
@@ -155,6 +156,42 @@ export const adjustUserCoins = async (
   if (error) throw error;
 };
 
+export const updateReportPriority = async (
+  reportId: string,
+  priority: string
+): Promise<void> => {
+  const { error } = await supabase
+    .from("complaints")
+    .update({ priority })
+    .eq("id", reportId);
+
+  if (error) throw error;
+};
+
+export const getAdminStats = async () => {
+  const [usersResult, reportsResult] = await Promise.all([
+    supabase.from("profiles").select("*", { count: "exact", head: true }),
+    supabase.from("complaints").select("*", { count: "exact", head: true }),
+  ]);
+
+  const { data: resolvedData } = await supabase
+    .from("complaints")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "resolved");
+
+  const { data: pendingData } = await supabase
+    .from("complaints")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "pending");
+
+  return {
+    totalUsers: usersResult.count || 0,
+    totalReports: reportsResult.count || 0,
+    resolvedReports: resolvedData?.length || 0,
+    pendingReports: pendingData?.length || 0,
+  };
+};
+
 // Export as a service object
 export const supabaseService = {
   getGreenCoinsHistory,
@@ -165,6 +202,8 @@ export const supabaseService = {
   updateReportStatus,
   getAllUsers,
   adjustUserCoins,
+  updateReportPriority,
+  getAdminStats,
 };
 
 export default supabaseService;

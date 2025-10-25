@@ -1,16 +1,23 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { mockApi, LeaderboardEntry } from "@/services/mockService";
+import { supabaseService } from "@/services/supabaseService";
 import { Trophy, Coins } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+
+interface LeaderboardEntry {
+  id: string;
+  name: string;
+  greenCoins: number;
+  rank: number;
+}
 
 export default function LeaderboardWidget() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    mockApi.getLeaderboard().then((data) => {
+    supabaseService.getLeaderboard().then((data) => {
       setLeaderboard(data);
       setLoading(false);
     });

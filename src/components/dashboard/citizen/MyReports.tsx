@@ -7,10 +7,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { mockApi, Report } from "@/services/mockService";
+import { supabaseService } from "@/services/supabaseService";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, MapPin, Calendar, Coins } from "lucide-react";
+import { Plus, MapPin, Calendar, Coins, Upload } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Report {
+  id: string;
+  title: string;
+  description: string;
+  location_name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  status: "pending" | "in-progress" | "resolved";
+  coins_earned: number;
+  created_at: string;
+  image_url: string;
+}
 
 export default function MyReports() {
   const { user, updateGreenCoins } = useAuth();
@@ -26,10 +40,12 @@ export default function MyReports() {
     longitude: 0,
   });
   const [detectingLocation, setDetectingLocation] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (user) {
-      mockApi.getUserReports(user.id).then((data) => {
+      supabaseService.getUserReports(user.id).then((data) => {
         setReports(data);
         setLoading(false);
       });
@@ -77,22 +93,44 @@ export default function MyReports() {
     setSubmitting(true);
 
     try {
-      const newReport = await mockApi.submitReport({
+      let imageUrl = "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b";
+
+      if (imageFile) {
+        setUploadingImage(true);
+        const fileExt = imageFile.name.split(".").pop();
+        const fileName = `${user!.id}-${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from("report-images")
+          .upload(fileName, imageFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from("report-images")
+          .getPublicUrl(fileName);
+
+        imageUrl = publicUrl;
+        setUploadingImage(false);
+      }
+
+      const newReport = await supabaseService.submitReport({
         userId: user!.id,
         title: formData.title,
         description: formData.description,
-        location: formData.location,
-        status: "pending",
-        coordinates: [formData.latitude || 28.6139, formData.longitude || 77.209],
+        locationName: formData.location,
+        latitude: formData.latitude || 28.6139,
+        longitude: formData.longitude || 77.209,
+        imageUrl,
       });
 
       setReports([newReport, ...reports]);
-      updateGreenCoins(10);
       toast({
         title: "Report Submitted! 🎉",
-        description: "You earned 10 Green Coins for reporting!",
+        description: "Your report is being reviewed. You'll earn coins once resolved!",
       });
       setFormData({ title: "", description: "", location: "", latitude: 0, longitude: 0 });
+      setImageFile(null);
       setIsOpen(false);
     } catch (error) {
       toast({
@@ -102,10 +140,11 @@ export default function MyReports() {
       });
     } finally {
       setSubmitting(false);
+      setUploadingImage(false);
     }
   };
 
-  const getStatusBadge = (status: Report["status"]) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case "resolved":
         return <Badge className="bg-green-500/10 text-green-700">Resolved</Badge>;
@@ -210,8 +249,17 @@ export default function MyReports() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting ? "Submitting..." : "Submit Report"}
+                <div className="space-y-2">
+                  <Label htmlFor="image">Image (Optional)</Label>
+                  <Input
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={submitting || uploadingImage}>
+                  {uploadingImage ? "Uploading Image..." : submitting ? "Submitting..." : "Submit Report"}
                 </Button>
               </form>
             </DialogContent>
@@ -232,21 +280,22 @@ export default function MyReports() {
               >
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-semibold">{report.description}</h4>
+                    <h4 className="font-semibold">{report.title}</h4>
                     {getStatusBadge(report.status)}
                   </div>
+                  <p className="text-sm text-muted-foreground">{report.description}</p>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <MapPin className="h-3 w-3" />
-                      {report.location}
+                      {report.location_name || "Unknown"}
                     </div>
                     <div className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      {report.date}
+                      {new Date(report.created_at).toLocaleDateString()}
                     </div>
                     <div className="flex items-center gap-1 text-primary">
                       <Coins className="h-3 w-3" />
-                      +{report.coinsEarned}
+                      +{report.coins_earned}
                     </div>
                   </div>
                 </div>

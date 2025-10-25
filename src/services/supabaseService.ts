@@ -15,11 +15,11 @@ export interface Report {
   description: string;
   location_name: string | null;
   image_url: string;
-  status: "pending" | "in_progress" | "resolved";
+  status: "pending" | "in-progress" | "resolved";
   created_at: string;
-  coins_earned: number | null;
-  latitude: number;
-  longitude: number;
+  coins_earned: number;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface LeaderboardEntry {
@@ -52,40 +52,26 @@ export const getUserReports = async (userId: string): Promise<Report[]> => {
   return (data || []) as Report[];
 };
 
-export const submitReport = async (
-  userId: string,
-  title: string,
-  description: string,
-  locationName: string,
-  latitude: number,
-  longitude: number,
-  imageFile: File
-): Promise<Report> => {
-  // Upload image to storage
-  const fileExt = imageFile.name.split(".").pop();
-  const fileName = `${userId}/${Date.now()}.${fileExt}`;
-  
-  const { error: uploadError } = await supabase.storage
-    .from("report-images")
-    .upload(fileName, imageFile);
-
-  if (uploadError) throw uploadError;
-
-  const { data: { publicUrl } } = supabase.storage
-    .from("report-images")
-    .getPublicUrl(fileName);
-
+export const submitReport = async (params: {
+  userId: string;
+  title: string;
+  description: string;
+  locationName: string;
+  latitude: number;
+  longitude: number;
+  imageUrl: string;
+}): Promise<Report> => {
   // Create report
   const { data, error } = await supabase
     .from("complaints")
     .insert({
-      user_id: userId,
-      title,
-      description,
-      location_name: locationName,
-      latitude,
-      longitude,
-      image_url: publicUrl,
+      user_id: params.userId,
+      title: params.title,
+      description: params.description,
+      location_name: params.locationName,
+      latitude: params.latitude,
+      longitude: params.longitude,
+      image_url: params.imageUrl,
       status: "pending",
       coins_earned: 10
     })
@@ -96,7 +82,7 @@ export const submitReport = async (
   return data as Report;
 };
 
-export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
+export const getLeaderboard = async (): Promise<{ id: string; name: string; greenCoins: number; rank: number }[]> => {
   const { data, error } = await supabase
     .from("leaderboard")
     .select("*")
@@ -104,7 +90,14 @@ export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
     .limit(10);
 
   if (error) throw error;
-  return (data || []) as LeaderboardEntry[];
+  
+  // Transform database format to component format
+  return (data || []).map(entry => ({
+    id: entry.user_id || "",
+    name: entry.full_name || "Unknown",
+    greenCoins: entry.green_coins || 0,
+    rank: entry.rank || 0
+  }));
 };
 
 // Admin endpoints
@@ -120,11 +113,14 @@ export const getAllReports = async (): Promise<Report[]> => {
 
 export const updateReportStatus = async (
   reportId: string,
-  status: "pending" | "in_progress" | "resolved"
+  status: "pending" | "in-progress" | "resolved"
 ): Promise<Report> => {
+  // Map hyphenated status to underscore for database
+  const dbStatus = status === "in-progress" ? "in_progress" : status;
+  
   const { data, error } = await supabase
     .from("complaints")
-    .update({ status })
+    .update({ status: dbStatus })
     .eq("id", reportId)
     .select()
     .single();
@@ -158,4 +154,18 @@ export const adjustUserCoins = async (
 
   if (error) throw error;
 };
+
+// Export as a service object
+export const supabaseService = {
+  getGreenCoinsHistory,
+  getUserReports,
+  submitReport,
+  getLeaderboard,
+  getAllReports,
+  updateReportStatus,
+  getAllUsers,
+  adjustUserCoins,
+};
+
+export default supabaseService;
 

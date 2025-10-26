@@ -62,6 +62,7 @@ export const submitReport = async (params: {
   longitude: number;
   imageUrl: string;
   priority?: "low" | "medium" | "high";
+  category?: string;
 }): Promise<Report> => {
   // Create report in Supabase
   const { data, error } = await supabase
@@ -92,6 +93,7 @@ export const submitReport = async (params: {
         userId: params.userId,
         title: params.title,
         description: params.description,
+        category: params.category || "general",
         location: params.locationName,
         latitude: params.latitude,
         longitude: params.longitude,
@@ -178,11 +180,17 @@ export const getAllUsers = async () => {
 
   const adminIds = (adminUsers || []).map((u: any) => u.user_id);
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("profiles" as any)
     .select("*")
-    .not("user_id", "in", `(${adminIds.join(",")})`)
     .order("green_coins", { ascending: false });
+
+  // Filter out admin users if there are any
+  if (adminIds.length > 0) {
+    query = query.not("user_id", "in", `(${adminIds.join(",")})`);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data || [];

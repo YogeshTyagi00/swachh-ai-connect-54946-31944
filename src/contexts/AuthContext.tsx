@@ -87,6 +87,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Subscribe to green_coins changes for the current user
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`profile-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          // Update user's green coins when profile changes
+          if (payload.new && 'green_coins' in payload.new) {
+            setUser(prev => prev ? { ...prev, greenCoins: (payload.new as any).green_coins } : null);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   const login = async (email: string, password: string, role: UserRole) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,

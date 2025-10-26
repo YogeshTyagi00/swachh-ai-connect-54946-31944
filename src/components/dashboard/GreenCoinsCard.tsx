@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Coins, TrendingUp, TrendingDown } from "lucide-react";
-import { mockApi, GreenCoinsTransaction } from "@/services/mockService";
+import { supabaseService, GreenCoinsTransaction } from "@/services/supabaseService";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -13,7 +13,7 @@ export default function GreenCoinsCard() {
 
   useEffect(() => {
     if (user) {
-      mockApi.getGreenCoinsHistory(user.id).then((data) => {
+      supabaseService.getGreenCoinsHistory(user.id).then((data) => {
         setTransactions(data);
         setLoading(false);
       });
@@ -21,11 +21,11 @@ export default function GreenCoinsCard() {
   }, [user]);
 
   const totalEarned = transactions
-    .filter((t) => t.type === "earned")
+    .filter((t) => t.transaction_type === "earned")
     .reduce((sum, t) => sum + t.coins, 0);
   
   const totalSpent = Math.abs(
-    transactions.filter((t) => t.type === "spent").reduce((sum, t) => sum + t.coins, 0)
+    transactions.filter((t) => t.transaction_type === "spent").reduce((sum, t) => sum + t.coins, 0)
   );
 
   const rewardLevels = [
@@ -118,11 +118,13 @@ export default function GreenCoinsCard() {
               >
                 <div className="flex-1">
                   <p className="text-sm font-medium">{transaction.action}</p>
-                  <p className="text-xs text-muted-foreground">{transaction.date}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(transaction.created_at).toLocaleDateString()}
+                  </p>
                 </div>
                 <p
                   className={`text-sm font-semibold ${
-                    transaction.type === "earned" ? "text-green-600" : "text-red-600"
+                    transaction.transaction_type === "earned" ? "text-green-600" : "text-red-600"
                   }`}
                 >
                   {transaction.coins > 0 ? "+" : ""}

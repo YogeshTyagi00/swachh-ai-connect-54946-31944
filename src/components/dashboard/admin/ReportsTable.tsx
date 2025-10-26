@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { supabaseService } from "@/services/supabaseService";
+import { supabase } from "@/integrations/supabase/client";
 import { MapPin, CheckCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -30,6 +31,27 @@ export default function ReportsTable() {
       setReports(data);
       setLoading(false);
     });
+
+    // Subscribe to realtime updates for all reports
+    const channel = supabase
+      .channel('admin-reports')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'complaints',
+        },
+        () => {
+          // Refetch all reports on any change
+          supabaseService.getAllReports().then(setReports);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleStatusChange = async (reportId: string, newStatus: "pending" | "in_progress" | "resolved") => {

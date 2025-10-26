@@ -238,6 +238,72 @@ export const adjustUserCoins = async (
   if (error) throw error;
 };
 
+// Eco Actions endpoints
+export interface EcoAction {
+  id: string;
+  title: string;
+  description: string;
+  coins: number;
+  icon: string;
+  completed: boolean;
+}
+
+export const getEcoActions = async (userId: string): Promise<EcoAction[]> => {
+  // Get all eco actions
+  const { data: actions, error: actionsError } = await supabase
+    .from("eco_actions" as any)
+    .select("*");
+
+  if (actionsError) throw actionsError;
+
+  // Get user's completed actions for today
+  const today = new Date().toISOString().split('T')[0];
+  const { data: completed, error: completedError } = await supabase
+    .from("user_eco_actions" as any)
+    .select("action_id")
+    .eq("user_id", userId)
+    .gte("completed_at", `${today}T00:00:00`)
+    .lt("completed_at", `${today}T23:59:59`);
+
+  if (completedError) throw completedError;
+
+  const completedIds = new Set((completed || []).map((c: any) => c.action_id));
+
+  return (actions || []).map((action: any) => ({
+    id: action.id,
+    title: action.title,
+    description: action.description,
+    coins: action.coins,
+    icon: action.icon,
+    completed: completedIds.has(action.id)
+  }));
+};
+
+export const completeEcoAction = async (
+  userId: string,
+  actionId: string,
+  coins: number
+): Promise<void> => {
+  // Insert completed action
+  const { error: insertError } = await supabase
+    .from("user_eco_actions" as any)
+    .insert({
+      user_id: userId,
+      action_id: actionId,
+      coins_earned: coins
+    });
+
+  if (insertError) throw insertError;
+
+  // Update user's green coins
+  await supabase.rpc("update_user_coins" as any, {
+    _user_id: userId,
+    _coins: coins,
+    _action: "Completed eco action",
+    _type: "earned"
+  });
+};
+
 // Export as a service object
 export const supabaseService = {
   getGreenCoinsHistory,
@@ -250,6 +316,8 @@ export const supabaseService = {
   getAllUsers,
   adjustUserCoins,
   getAdminStats,
+  getEcoActions,
+  completeEcoAction,
 };
 
 export default supabaseService;

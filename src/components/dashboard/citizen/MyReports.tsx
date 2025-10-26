@@ -210,7 +210,7 @@ export default function MyReports() {
                 New Report
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Submit New Report</DialogTitle>
                 <DialogDescription>Report a waste management issue and earn 10 Green Coins</DialogDescription>

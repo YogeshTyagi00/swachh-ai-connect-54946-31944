@@ -107,6 +107,33 @@ export type Database = {
         }
         Relationships: []
       }
+      eco_actions: {
+        Row: {
+          coins: number
+          created_at: string | null
+          description: string
+          icon: string
+          id: string
+          title: string
+        }
+        Insert: {
+          coins: number
+          created_at?: string | null
+          description: string
+          icon: string
+          id?: string
+          title: string
+        }
+        Update: {
+          coins?: number
+          created_at?: string | null
+          description?: string
+          icon?: string
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
       green_coins_transactions: {
         Row: {
           action: string
@@ -239,6 +266,38 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      user_eco_actions: {
+        Row: {
+          action_id: string
+          coins_earned: number
+          completed_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action_id: string
+          coins_earned: number
+          completed_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action_id?: string
+          coins_earned?: number
+          completed_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_eco_actions_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "eco_actions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

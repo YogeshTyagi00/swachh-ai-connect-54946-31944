@@ -2,37 +2,57 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { mockApi, EcoAction } from "@/services/mockService";
+import { supabaseService, EcoAction } from "@/services/supabaseService";
 import { useAuth } from "@/contexts/AuthContext";
 import { CheckCircle2, Circle, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import * as LucideIcons from "lucide-react";
 
 export default function EcoActions() {
-  const { updateGreenCoins } = useAuth();
+  const { user } = useAuth();
   const [actions, setActions] = useState<EcoAction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    mockApi.getEcoActions().then((data) => {
+  const fetchActions = async () => {
+    if (!user) return;
+    try {
+      const data = await supabaseService.getEcoActions(user.id);
       setActions(data);
+    } catch (error) {
+      console.error("Failed to fetch eco actions:", error);
+    } finally {
       setLoading(false);
-    });
-  }, []);
+    }
+  };
+
+  useEffect(() => {
+    fetchActions();
+  }, [user]);
 
   const handleComplete = async (actionId: string) => {
+    if (!user) return;
+    
+    const action = actions.find((a) => a.id === actionId);
+    if (!action) return;
+
     try {
-      const action = await mockApi.completeEcoAction(actionId);
-      setActions(actions.map((a) => (a.id === actionId ? action : a)));
-      updateGreenCoins(action.coins);
+      await supabaseService.completeEcoAction(user.id, actionId, action.coins);
+      
+      // Refresh actions to show updated completion status
+      await fetchActions();
+      
       toast({
         title: "Action Completed! 🌱",
         description: `You earned ${action.coins} Green Coins!`,
       });
-    } catch (error) {
+    } catch (error: any) {
+      const message = error.message?.includes("duplicate key") 
+        ? "You've already completed this action today!"
+        : "Please try again.";
+      
       toast({
         title: "Failed to complete action",
-        description: "Please try again.",
+        description: message,
         variant: "destructive",
       });
     }

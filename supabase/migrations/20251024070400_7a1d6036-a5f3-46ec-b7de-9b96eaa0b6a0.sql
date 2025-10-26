@@ -111,13 +111,25 @@ CREATE POLICY "Admins can view all redemptions"
   ON public.reward_redemptions FOR SELECT
   USING (public.has_role(auth.uid(), 'admin'));
 
--- Storage policies for report images
-CREATE POLICY "Users can upload their own images"
-  ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'report-images' AND auth.uid()::text = (storage.foldername(name))[1]);
+-- ✅ FIXED Storage policies for report images
+DROP POLICY IF EXISTS "Users can upload their own images" ON storage.objects;
+DROP POLICY IF EXISTS "Images are publicly accessible" ON storage.objects;
 
+-- Allow only authenticated users to upload images
+CREATE POLICY "Authenticated users can upload report images"
+  ON storage.objects
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    bucket_id = 'report-images'
+    AND position('..' in name) = 0
+    AND right(name, 1) <> '/'
+  );
+
+-- Allow anyone to view report images publicly
 CREATE POLICY "Images are publicly accessible"
-  ON storage.objects FOR SELECT
+  ON storage.objects
+  FOR SELECT
   USING (bucket_id = 'report-images');
 
 -- Trigger to auto-assign citizen role on user creation

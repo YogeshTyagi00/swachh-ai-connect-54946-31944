@@ -127,7 +127,7 @@ export default function MyReports() {
         
         const { error: uploadError } = await supabase.storage
           .from("report-images")
-          .upload(fileName, imageFile);
+          .upload(fileName, imageFile, { upsert: true, contentType: imageFile.type });
 
         if (uploadError) throw uploadError;
 
@@ -153,7 +153,7 @@ export default function MyReports() {
 
       setReports([newReport, ...reports]);
       toast({
-        title: "Report Submitted! 🎉",
+        title: "Report submitted successfully!",
         description: "Your report is being reviewed. You'll earn coins once resolved!",
       });
       setFormData({ title: "", description: "", location: "", latitude: 0, longitude: 0, priority: "medium", category: "general" });
@@ -310,8 +310,22 @@ export default function MyReports() {
                   <Input
                     id="image"
                     type="file"
-                    accept="image/*"
-                    onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                    accept="image/png, image/jpeg, image/jpg"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] || null;
+                      if (!f) { setImageFile(null); return; }
+                      const allowed = ["image/jpeg", "image/png", "image/jpg"];
+                      if (!allowed.includes(f.type)) {
+                        setImageFile(null);
+                        toast({
+                          title: "Invalid file type",
+                          description: "Please upload a .jpg, .jpeg, or .png image.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      setImageFile(f);
+                    }}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={submitting || uploadingImage}>

@@ -119,7 +119,10 @@ export default function MyReports() {
 
     try {
       let imageUrl = "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b";
+      let aiPrediction = "";
+      let emailStatus = "";
 
+      // Step 1: Upload image to Supabase if provided
       if (imageFile) {
         setUploadingImage(true);
         const fileExt = imageFile.name.split(".").pop();
@@ -137,8 +140,33 @@ export default function MyReports() {
 
         imageUrl = publicUrl;
         setUploadingImage(false);
+
+        // Step 2: Send image + location to AI backend
+        try {
+          const aiFormData = new FormData();
+          aiFormData.append("file", imageFile);
+          aiFormData.append("location", formData.location || "User did not specify");
+
+          const aiResponse = await fetch("https://civic-bot-backend.onrender.com/api/predict", {
+            method: "POST",
+            body: aiFormData,
+          });
+
+          if (aiResponse.ok) {
+            const aiData = await aiResponse.json();
+            aiPrediction = aiData.prediction || "Unknown";
+            emailStatus = aiData.email_status || "Not sent";
+
+            // Show alert with AI results
+            alert(`Detected: ${aiPrediction}\nEmail Status: ${emailStatus}`);
+          }
+        } catch (aiError) {
+          console.error("AI backend error:", aiError);
+          // Continue with report submission even if AI fails
+        }
       }
 
+      // Step 3: Insert report into Supabase
       const newReport = await supabaseService.submitReport({
         userId: user!.id,
         title: formData.title,
@@ -160,9 +188,10 @@ export default function MyReports() {
       setImageFile(null);
       setIsOpen(false);
     } catch (error) {
+      console.error("Report submission error:", error);
       toast({
         title: "Submission failed",
-        description: "Please try again.",
+        description: error instanceof Error ? error.message : "Please try again.",
         variant: "destructive",
       });
     } finally {

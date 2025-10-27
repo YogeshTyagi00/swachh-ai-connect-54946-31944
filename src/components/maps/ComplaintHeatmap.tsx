@@ -50,35 +50,59 @@ function HeatLayer({ complaints }: { complaints: Complaint[] }) {
   const map = useMap();
 
   useEffect(() => {
-    if (!complaints.length) return;
+    if (!complaints.length || !map) return;
 
-    // Create heat data with intensity based on priority
-    const heatData = complaints.map((complaint) => {
-      const intensity = 
-        complaint.priority === "high" ? 1.0 : 
-        complaint.priority === "medium" ? 0.6 : 0.3;
-      
-      return [complaint.latitude, complaint.longitude, intensity];
-    });
+    try {
+      // Create heat data with intensity based on priority
+      const heatData = complaints
+        .filter(c => c.latitude && c.longitude)
+        .map((complaint) => {
+          const intensity = 
+            complaint.priority === "high" ? 1.0 : 
+            complaint.priority === "medium" ? 0.6 : 0.3;
+          
+          return [
+            parseFloat(String(complaint.latitude)), 
+            parseFloat(String(complaint.longitude)), 
+            intensity
+          ] as [number, number, number];
+        });
 
-    // @ts-ignore - leaflet.heat types
-    const heatLayer = L.heatLayer(heatData, {
-      radius: 25,
-      blur: 15,
-      maxZoom: 17,
-      max: 1.0,
-      gradient: {
-        0.0: '#0000ff',
-        0.3: '#00ffff',
-        0.5: '#00ff00',
-        0.7: '#ffff00',
-        1.0: '#ff0000'
+      if (heatData.length === 0) return;
+
+      // Check if L.heatLayer exists
+      if (typeof (L as any).heatLayer !== 'function') {
+        console.error('Leaflet.heat plugin not loaded correctly');
+        return;
       }
-    }).addTo(map);
 
-    return () => {
-      map.removeLayer(heatLayer);
-    };
+      // @ts-ignore - leaflet.heat types
+      const heatLayer = (L as any).heatLayer(heatData, {
+        radius: 25,
+        blur: 15,
+        maxZoom: 17,
+        max: 1.0,
+        gradient: {
+          0.0: '#0000ff',
+          0.3: '#00ffff',
+          0.5: '#00ff00',
+          0.7: '#ffff00',
+          1.0: '#ff0000'
+        }
+      });
+
+      if (heatLayer && map) {
+        heatLayer.addTo(map);
+      }
+
+      return () => {
+        if (heatLayer && map) {
+          map.removeLayer(heatLayer);
+        }
+      };
+    } catch (error) {
+      console.error('Error creating heat layer:', error);
+    }
   }, [map, complaints]);
 
   return null;
@@ -128,9 +152,17 @@ export default function ComplaintHeatmap({
         .limit(500);
 
       if (error) throw error;
-      setComplaints(data || []);
+      
+      // Filter out any invalid coordinates
+      const validComplaints = (data || []).filter(
+        c => c.latitude != null && c.longitude != null && 
+             !isNaN(Number(c.latitude)) && !isNaN(Number(c.longitude))
+      );
+      
+      setComplaints(validComplaints);
     } catch (error) {
       console.error("Error fetching complaints:", error);
+      setComplaints([]);
     } finally {
       setLoading(false);
     }
@@ -190,8 +222,8 @@ export default function ComplaintHeatmap({
   }
 
   // Calculate center based on complaints
-  const center: [number, number] = complaints.length > 0
-    ? [complaints[0].latitude, complaints[0].longitude]
+  const center: [number, number] = complaints.length > 0 && complaints[0].latitude && complaints[0].longitude
+    ? [parseFloat(String(complaints[0].latitude)), parseFloat(String(complaints[0].longitude))]
     : [28.6139, 77.2090];
 
   return (
@@ -224,10 +256,15 @@ export default function ComplaintHeatmap({
           
           {complaints.map((complaint) => {
             const MarkerAny = Marker as any;
+            const lat = parseFloat(String(complaint.latitude));
+            const lng = parseFloat(String(complaint.longitude));
+            
+            if (isNaN(lat) || isNaN(lng)) return null;
+            
             return (
               <MarkerAny
                 key={complaint.id}
-                position={[complaint.latitude, complaint.longitude]}
+                position={[lat, lng]}
                 icon={getStatusIcon(complaint.status)}
               >
                 <Popup>

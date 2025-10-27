@@ -126,17 +126,22 @@ export default function MyReports() {
       if (imageFile) {
         setUploadingImage(true);
         const fileExt = imageFile.name.split(".").pop();
-        const fileName = `${user!.id}-${Date.now()}.${fileExt}`;
+        const timestamp = Date.now();
+        // Include user ID in folder path to match storage RLS policy
+        const filePath = `${user!.id}/${timestamp}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from("report-images")
-          .upload(fileName, imageFile, { upsert: true, contentType: imageFile.type });
+          .upload(filePath, imageFile, { upsert: true, contentType: imageFile.type });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          setUploadingImage(false);
+          throw new Error(`Image upload failed: ${uploadError.message}`);
+        }
 
         const { data: { publicUrl } } = supabase.storage
           .from("report-images")
-          .getPublicUrl(fileName);
+          .getPublicUrl(filePath);
 
         imageUrl = publicUrl;
         setUploadingImage(false);
@@ -179,14 +184,19 @@ export default function MyReports() {
         category: formData.category,
       });
 
-      setReports([newReport, ...reports]);
-      toast({
-        title: "Report submitted successfully!",
-        description: "Your report is being reviewed. You'll earn coins once resolved!",
-      });
-      setFormData({ title: "", description: "", location: "", latitude: 0, longitude: 0, priority: "medium", category: "general" });
-      setImageFile(null);
-      setIsOpen(false);
+      // Wait for insertion to complete before updating UI
+      if (newReport) {
+        setReports([newReport, ...reports]);
+        toast({
+          title: "Report submitted successfully!",
+          description: "Your report is being reviewed. You'll earn coins once resolved!",
+        });
+        
+        // Reset form and close dialog
+        setFormData({ title: "", description: "", location: "", latitude: 0, longitude: 0, priority: "medium", category: "general" });
+        setImageFile(null);
+        setIsOpen(false);
+      }
     } catch (error) {
       console.error("Report submission error:", error);
       toast({

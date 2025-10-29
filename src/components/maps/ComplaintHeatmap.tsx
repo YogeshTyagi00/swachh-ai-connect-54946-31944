@@ -5,6 +5,9 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "leaflet.heat"; // 🔧 FIX — make sure this is imported directly
 
+console.log("🔥 leaflet.heat loaded:", typeof (L as any).heatLayer);
+
+
 interface Complaint {
   id: string;
   title?: string;

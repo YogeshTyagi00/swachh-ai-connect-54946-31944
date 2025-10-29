@@ -1,47 +1,62 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Leaf, User } from "lucide-react";
+import { Mail } from "lucide-react";
 
-export default function Signup() {
+export default function VerifyEmail() {
   const navigate = useNavigate();
+  const { signup } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleVerify = async () => {
     setLoading(true);
 
     try {
-      // Store signup data temporarily
-      sessionStorage.setItem("pendingSignup", JSON.stringify({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-      }));
-      
+      const pendingSignup = sessionStorage.getItem("pendingSignup");
+
+      if (!pendingSignup) {
+        toast({
+          title: "Session expired",
+          description: "Please sign up again.",
+          variant: "destructive",
+        });
+        navigate("/signup");
+        return;
+      }
+
+      const { name, email, password } = JSON.parse(pendingSignup);
+
+      // Simulate sending email (replace this with actual backend call)
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      await signup(name, email, password);
+      sessionStorage.removeItem("pendingSignup");
+
       toast({
-        title: "Verification code sent!",
-        description: "Please check your email for the verification code.",
+        title: "Verification email sent! 📧",
+        description: "Please check your inbox to verify your email address.",
       });
-      navigate("/verify-email");
+
+      navigate("/citizen-dashboard");
     } catch (error) {
       toast({
-        title: "Signup failed",
-        description: "Please try again.",
+        title: "Error",
+        description: "Unable to send verification email. Please try again.",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResend = () => {
+    toast({
+      title: "Verification email resent! ✉",
+      description: "Check your inbox again for the verification link.",
+    });
   };
 
   return (
@@ -50,63 +65,39 @@ export default function Signup() {
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
             <div className="bg-gradient-to-br from-primary to-primary/70 rounded-full p-3">
-              <Leaf className="h-8 w-8 text-white" />
+              <Mail className="h-8 w-8 text-white" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Join SwachhAI as Citizen</CardTitle>
-          <CardDescription>Create your account and start earning Green Coins</CardDescription>
+          <CardTitle className="text-2xl">Verify Your Email</CardTitle>
+          <CardDescription>
+            Click the button below to send a verification email to your inbox.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 p-3 bg-primary/10 rounded-lg flex items-center gap-2">
-            <User className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium">Citizen Account</span>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Your Name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your.email@example.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
-                minLength={6}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account..." : "Sign Up"}
+          <div className="space-y-4">
+            <Button
+              onClick={handleVerify}
+              className="w-full"
+              disabled={loading}
+            >
+              {loading ? "Sending..." : "Verify Email"}
             </Button>
-          </form>
 
-          <div className="mt-4 text-center text-sm">
-            Already have an account?{" "}
-            <Link to="/login" className="text-primary hover:underline">
-              Sign in
-            </Link>
+            <div className="mt-4 text-center space-y-2">
+              <button
+                type="button"
+                onClick={handleResend}
+                className="text-sm text-primary hover:underline"
+              >
+                Resend verification email
+              </button>
+              <div className="text-sm">
+                Wrong email?{" "}
+                <Link to="/signup" className="text-primary hover:underline">
+                  Go back
+                </Link>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

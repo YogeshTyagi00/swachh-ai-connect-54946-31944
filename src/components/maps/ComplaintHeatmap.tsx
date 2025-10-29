@@ -1,22 +1,9 @@
-import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "leaflet.heat";
 
-// Fix for default marker icons
-import icon from "leaflet/dist/images/marker-icon.png";
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
-
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
-
-L.Marker.prototype.options.icon = DefaultIcon;
 
 interface Complaint {
   id: string;
@@ -35,79 +22,6 @@ interface ComplaintHeatmapProps {
   showControls?: boolean;
 }
 
-// Custom status icons
-const getStatusIcon = (status: string) => {
-  const color = status === "resolved" ? "#22c55e" : status === "in_progress" ? "#f59e0b" : "#ef4444";
-  return L.icon({
-    iconUrl: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="10" fill="${encodeURIComponent(color)}" stroke="white" stroke-width="3"/></svg>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-  });
-};
-
-// HeatLayer component
-function HeatLayer({ complaints }: { complaints: Complaint[] }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!complaints.length || !map) return;
-
-    try {
-      // Create heat data with intensity based on priority
-      const heatData = complaints
-        .filter(c => c.latitude && c.longitude)
-        .map((complaint) => {
-          const intensity = 
-            complaint.priority === "high" ? 1.0 : 
-            complaint.priority === "medium" ? 0.6 : 0.3;
-          
-          return [
-            parseFloat(String(complaint.latitude)), 
-            parseFloat(String(complaint.longitude)), 
-            intensity
-          ] as [number, number, number];
-        });
-
-      if (heatData.length === 0) return;
-
-      // Check if L.heatLayer exists
-      if (typeof (L as any).heatLayer !== 'function') {
-        console.error('Leaflet.heat plugin not loaded correctly');
-        return;
-      }
-
-      // @ts-ignore - leaflet.heat types
-      const heatLayer = (L as any).heatLayer(heatData, {
-        radius: 25,
-        blur: 15,
-        maxZoom: 17,
-        max: 1.0,
-        gradient: {
-          0.0: '#0000ff',
-          0.3: '#00ffff',
-          0.5: '#00ff00',
-          0.7: '#ffff00',
-          1.0: '#ff0000'
-        }
-      });
-
-      if (heatLayer && map) {
-        heatLayer.addTo(map);
-      }
-
-      return () => {
-        if (heatLayer && map) {
-          map.removeLayer(heatLayer);
-        }
-      };
-    } catch (error) {
-      console.error('Error creating heat layer:', error);
-    }
-  }, [map, complaints]);
-
-  return null;
-}
-
 export default function ComplaintHeatmap({ 
   height = "600px", 
   showControls = true 
@@ -115,11 +29,168 @@ export default function ComplaintHeatmap({
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const heatLayerRef = useRef<any>(null);
+  const markersRef = useRef<L.Marker[]>([]);
 
+  const fetchComplaints = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("complaints")
+        .select("*")
+        .not("latitude", "is", null)
+        .not("longitude", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      if (error) throw error;
+      
+      const validComplaints = (data || []).filter(
+        c => c.latitude != null && c.longitude != null && 
+             !isNaN(Number(c.latitude)) && !isNaN(Number(c.longitude))
+      );
+      
+      setComplaints(validComplaints);
+      setError(null);
+    } catch (error) {
+      console.error("Error fetching complaints:", error);
+      setError("Failed to load map data");
+      setComplaints([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initialize map
+  useEffect(() => {
+    if (!mapRef.current) {
+      try {
+        const map = L.map("heatmap-container", {
+          center: [28.6139, 77.2090],
+          zoom: 12,
+          scrollWheelZoom: true,
+        });
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "&copy; OpenStreetMap contributors",
+        }).addTo(map);
+
+        mapRef.current = map;
+      } catch (err) {
+        console.error("Error initializing map:", err);
+        setError("Map failed to load, please refresh.");
+      }
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+
+  // Update heatmap and markers
+  useEffect(() => {
+    if (!mapRef.current || complaints.length === 0) return;
+
+    try {
+      // Clear existing layers
+      if (heatLayerRef.current) {
+        mapRef.current.removeLayer(heatLayerRef.current);
+      }
+      markersRef.current.forEach(marker => mapRef.current?.removeLayer(marker));
+      markersRef.current = [];
+
+      // Create heat data
+      const heatData = complaints.map((complaint) => {
+        const intensity = 
+          complaint.priority === "high" ? 1.0 : 
+          complaint.priority === "medium" ? 0.6 : 0.3;
+        
+        return [
+          parseFloat(String(complaint.latitude)), 
+          parseFloat(String(complaint.longitude)), 
+          intensity
+        ] as [number, number, number];
+      });
+
+      // Add heatmap layer
+      if (showHeatmap && typeof (L as any).heatLayer === 'function') {
+        heatLayerRef.current = (L as any).heatLayer(heatData, {
+          radius: 25,
+          blur: 15,
+          maxZoom: 17,
+          max: 1.0,
+          gradient: {
+            0.0: '#0000ff',
+            0.3: '#00ffff',
+            0.5: '#00ff00',
+            0.7: '#ffff00',
+            1.0: '#ff0000'
+          }
+        }).addTo(mapRef.current);
+      }
+
+      // Add markers
+      complaints.forEach((complaint) => {
+        const lat = parseFloat(String(complaint.latitude));
+        const lng = parseFloat(String(complaint.longitude));
+        
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const color = complaint.status === "resolved" ? "#22c55e" : 
+                     complaint.status === "in_progress" ? "#f59e0b" : "#ef4444";
+        
+        const icon = L.icon({
+          iconUrl: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="10" fill="${encodeURIComponent(color)}" stroke="white" stroke-width="3"/></svg>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+        });
+
+        const marker = L.marker([lat, lng], { icon })
+          .bindPopup(`
+            <div class="min-w-[200px] space-y-2 p-1">
+              <h4 class="font-semibold text-base">${complaint.title}</h4>
+              <p class="text-xs text-muted-foreground">${complaint.location_name || ''}</p>
+              <p class="text-sm line-clamp-2">${complaint.description}</p>
+              <div class="flex gap-2 flex-wrap">
+                <span class="text-xs px-2 py-1 rounded-full text-white" style="background-color: ${color}">
+                  ${complaint.status.replace("_", " ").toUpperCase()}
+                </span>
+                <span class="text-xs px-2 py-1 rounded-full text-white bg-blue-600">
+                  ${complaint.priority.toUpperCase()}
+                </span>
+              </div>
+              <p class="text-xs text-muted-foreground mt-1">
+                ${new Date(complaint.created_at).toLocaleDateString()}
+              </p>
+            </div>
+          `)
+          .addTo(mapRef.current!);
+
+        markersRef.current.push(marker);
+      });
+
+      // Center map on first complaint
+      if (complaints.length > 0) {
+        const firstLat = parseFloat(String(complaints[0].latitude));
+        const firstLng = parseFloat(String(complaints[0].longitude));
+        if (!isNaN(firstLat) && !isNaN(firstLng)) {
+          mapRef.current.setView([firstLat, firstLng], 12);
+        }
+      }
+    } catch (err) {
+      console.error("Error updating heatmap:", err);
+      setError("Failed to update heatmap");
+    }
+  }, [complaints, showHeatmap]);
+
+  // Real-time subscription
   useEffect(() => {
     fetchComplaints();
 
-    // Real-time subscription
     const channel = supabase
       .channel("complaints-changes")
       .on(
@@ -141,55 +212,6 @@ export default function ComplaintHeatmap({
     };
   }, []);
 
-  const fetchComplaints = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("complaints")
-        .select("*")
-        .not("latitude", "is", null)
-        .not("longitude", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(500);
-
-      if (error) throw error;
-      
-      // Filter out any invalid coordinates
-      const validComplaints = (data || []).filter(
-        c => c.latitude != null && c.longitude != null && 
-             !isNaN(Number(c.latitude)) && !isNaN(Number(c.longitude))
-      );
-      
-      setComplaints(validComplaints);
-    } catch (error) {
-      console.error("Error fetching complaints:", error);
-      setComplaints([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case "resolved":
-        return "bg-green-500";
-      case "in_progress":
-        return "bg-orange-500";
-      default:
-        return "bg-red-500";
-    }
-  };
-
-  const getPriorityBadgeColor = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "bg-red-600";
-      case "medium":
-        return "bg-yellow-600";
-      default:
-        return "bg-blue-600";
-    }
-  };
-
   if (loading) {
     return (
       <div 
@@ -204,7 +226,22 @@ export default function ComplaintHeatmap({
     );
   }
 
-  if (!complaints.length) {
+  if (error) {
+    return (
+      <div 
+        className="flex items-center justify-center rounded-lg border border-border bg-card"
+        style={{ height }}
+      >
+        <div className="text-center space-y-2">
+          <div className="text-4xl">⚠️</div>
+          <h3 className="text-xl font-semibold">Map failed to load</h3>
+          <p className="text-muted-foreground">Please refresh the page to try again.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!complaints.length && !loading) {
     return (
       <div 
         className="flex items-center justify-center rounded-lg border border-border bg-card"
@@ -221,11 +258,6 @@ export default function ComplaintHeatmap({
     );
   }
 
-  // Calculate center based on complaints
-  const center: [number, number] = complaints.length > 0 && complaints[0].latitude && complaints[0].longitude
-    ? [parseFloat(String(complaints[0].latitude)), parseFloat(String(complaints[0].longitude))]
-    : [28.6139, 77.2090];
-
   return (
     <div className="relative">
       {showControls && (
@@ -240,58 +272,10 @@ export default function ComplaintHeatmap({
       )}
       
       <div 
+        id="heatmap-container"
         className="rounded-lg overflow-hidden border border-border shadow-lg"
         style={{ height }}
-      >
-        <MapContainer
-          // @ts-expect-error - Leaflet type definitions issue
-          center={center}
-          zoom={12}
-          scrollWheelZoom={true}
-          className="h-full w-full"
-        >
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          
-          {showHeatmap && <HeatLayer complaints={complaints} />}
-          
-          {complaints.map((complaint) => {
-            const MarkerAny = Marker as any;
-            const lat = parseFloat(String(complaint.latitude));
-            const lng = parseFloat(String(complaint.longitude));
-            
-            if (isNaN(lat) || isNaN(lng)) return null;
-            
-            return (
-              <MarkerAny
-                key={complaint.id}
-                position={[lat, lng]}
-                icon={getStatusIcon(complaint.status)}
-              >
-                <Popup>
-                  <div className="min-w-[200px] space-y-2 p-1">
-                    <h4 className="font-semibold text-base">{complaint.title}</h4>
-                    <p className="text-xs text-muted-foreground">{complaint.location_name}</p>
-                    <p className="text-sm line-clamp-2">{complaint.description}</p>
-                    
-                    <div className="flex gap-2 flex-wrap">
-                      <span className={`text-xs px-2 py-1 rounded-full text-white ${getStatusBadgeColor(complaint.status)}`}>
-                        {complaint.status.replace("_", " ").toUpperCase()}
-                      </span>
-                      <span className={`text-xs px-2 py-1 rounded-full text-white ${getPriorityBadgeColor(complaint.priority)}`}>
-                        {complaint.priority.toUpperCase()}
-                      </span>
-                    </div>
-                    
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(complaint.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </Popup>
-              </MarkerAny>
-            );
-          })}
-        </MapContainer>
-      </div>
+      />
 
       {/* Legend */}
       <div className="mt-4 flex flex-wrap gap-4 justify-center text-sm">

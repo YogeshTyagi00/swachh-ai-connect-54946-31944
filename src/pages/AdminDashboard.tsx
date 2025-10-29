@@ -9,7 +9,7 @@ import { supabaseService } from "@/services/supabaseService";
 const ReportsTable = lazy(() => import("@/components/dashboard/admin/ReportsTable"));
 const GreenCoinsManager = lazy(() => import("@/components/dashboard/admin/GreenCoinsManager"));
 const OverviewCharts = lazy(() => import("@/components/dashboard/admin/OverviewCharts"));
-const ComplaintHeatmap = lazy(() => import("@/components/maps/ComplaintHeatmap"));
+const AdminHeatmap = lazy(() => import("@/components/admin/AdminHeatmap"));
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -117,22 +117,20 @@ export default function AdminDashboard() {
         </div>
 
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="text-2xl">🗺️</span>
-                City Hotspot Map
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Real-time visualization of complaint hotspots across the city
+          <Card className="relative overflow-hidden">
+            <div 
+              className="absolute inset-0 bg-cover bg-center opacity-30"
+              style={{ 
+                backgroundImage: "url('https://images.unsplash.com/photo-1524661135-423995f22d0b?w=1200&q=80')",
+                filter: "blur(2px)"
+              }}
+            />
+            <CardContent className="relative z-10 flex flex-col items-center justify-center min-h-[400px] text-center space-y-4">
+              <div className="text-6xl">🗺️</div>
+              <h3 className="text-2xl font-bold">Heatmap Coming Soon...</h3>
+              <p className="text-muted-foreground max-w-md">
+                We're working on an interactive heatmap to visualize waste reports across your city. Stay tuned!
               </p>
-            </CardHeader>
-            <CardContent>
-              <ErrorBoundary>
-                <Suspense fallback={<Skeleton className="h-[600px]" />}>
-                  <ComplaintHeatmap height="600px" showControls={true} />
-                </Suspense>
-              </ErrorBoundary>
             </CardContent>
           </Card>
 

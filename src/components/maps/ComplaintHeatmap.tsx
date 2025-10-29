@@ -68,45 +68,60 @@ export default function ComplaintHeatmap({
   useEffect(() => {
     // Wait for DOM to be ready
     const timer = setTimeout(() => {
-      if (!mapRef.current && containerRef.current && typeof window !== 'undefined') {
-        try {
-          // Check if Leaflet is available
-          if (!L) {
-            console.error("Leaflet not loaded");
-            setError("Map library not loaded");
-            return;
-          }
-
-          const map = L.map(containerRef.current, {
-            center: [28.6139, 77.2090],
-            zoom: 12,
-            scrollWheelZoom: true,
-          });
-
-          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            attribution: "&copy; OpenStreetMap contributors",
-            maxZoom: 19,
-          }).addTo(map);
-
-          mapRef.current = map;
-          setMapReady(true);
-          
-          // Force map to resize after initialization
-          setTimeout(() => {
-            map.invalidateSize();
-          }, 100);
-        } catch (err) {
-          console.error("Error initializing map:", err);
-          setError("Map failed to load, please refresh.");
-        }
+      if (mapRef.current || !containerRef.current || typeof window === 'undefined') {
+        return;
       }
-    }, 100);
+
+      try {
+        // Check if Leaflet is available
+        if (!L) {
+          console.error("Leaflet not loaded");
+          setError("Map library not loaded");
+          return;
+        }
+
+        const map = L.map(containerRef.current, {
+          center: [28.6139, 77.2090],
+          zoom: 12,
+          scrollWheelZoom: true,
+        });
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "&copy; OpenStreetMap contributors",
+          maxZoom: 19,
+        }).addTo(map);
+
+        mapRef.current = map;
+        setMapReady(true);
+        
+        // Force map to resize after initialization
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.invalidateSize();
+          }
+        }, 100);
+        
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.invalidateSize();
+          }
+        }, 500);
+      } catch (err) {
+        console.error("Error initializing map:", err);
+        setError("Map failed to load, please refresh.");
+      }
+    }, 150);
 
     return () => {
       clearTimeout(timer);
       if (mapRef.current) {
-        mapRef.current.remove();
+        try {
+          mapRef.current.remove();
+        } catch (err) {
+          console.error("Error removing map:", err);
+        }
         mapRef.current = null;
+        setMapReady(false);
       }
     };
   }, []);

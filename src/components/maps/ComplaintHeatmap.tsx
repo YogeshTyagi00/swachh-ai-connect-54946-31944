@@ -30,9 +30,11 @@ export default function ComplaintHeatmap({
   const [loading, setLoading] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
   const heatLayerRef = useRef<any>(null);
   const markersRef = useRef<L.Marker[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const fetchComplaints = async () => {
     try {
@@ -62,28 +64,46 @@ export default function ComplaintHeatmap({
     }
   };
 
-  // Initialize map
+  // Initialize map after DOM is ready
   useEffect(() => {
-    if (!mapRef.current) {
-      try {
-        const map = L.map("heatmap-container", {
-          center: [28.6139, 77.2090],
-          zoom: 12,
-          scrollWheelZoom: true,
-        });
+    // Wait for DOM to be ready
+    const timer = setTimeout(() => {
+      if (!mapRef.current && containerRef.current && typeof window !== 'undefined') {
+        try {
+          // Check if Leaflet is available
+          if (!L) {
+            console.error("Leaflet not loaded");
+            setError("Map library not loaded");
+            return;
+          }
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: "&copy; OpenStreetMap contributors",
-        }).addTo(map);
+          const map = L.map(containerRef.current, {
+            center: [28.6139, 77.2090],
+            zoom: 12,
+            scrollWheelZoom: true,
+          });
 
-        mapRef.current = map;
-      } catch (err) {
-        console.error("Error initializing map:", err);
-        setError("Map failed to load, please refresh.");
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: "&copy; OpenStreetMap contributors",
+            maxZoom: 19,
+          }).addTo(map);
+
+          mapRef.current = map;
+          setMapReady(true);
+          
+          // Force map to resize after initialization
+          setTimeout(() => {
+            map.invalidateSize();
+          }, 100);
+        } catch (err) {
+          console.error("Error initializing map:", err);
+          setError("Map failed to load, please refresh.");
+        }
       }
-    }
+    }, 100);
 
     return () => {
+      clearTimeout(timer);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -93,7 +113,7 @@ export default function ComplaintHeatmap({
 
   // Update heatmap and markers
   useEffect(() => {
-    if (!mapRef.current || complaints.length === 0) return;
+    if (!mapRef.current || !mapReady || complaints.length === 0) return;
 
     try {
       // Clear existing layers
@@ -185,7 +205,7 @@ export default function ComplaintHeatmap({
       console.error("Error updating heatmap:", err);
       setError("Failed to update heatmap");
     }
-  }, [complaints, showHeatmap]);
+  }, [complaints, showHeatmap, mapReady]);
 
   // Real-time subscription
   useEffect(() => {
@@ -272,9 +292,9 @@ export default function ComplaintHeatmap({
       )}
       
       <div 
-        id="heatmap-container"
-        className="rounded-lg overflow-hidden border border-border shadow-lg"
-        style={{ height }}
+        ref={containerRef}
+        className="rounded-lg overflow-hidden border border-border shadow-lg bg-muted"
+        style={{ height, width: "100%" }}
       />
 
       {/* Legend */}

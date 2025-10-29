@@ -7,7 +7,6 @@ import "leaflet.heat"; // 🔧 FIX — make sure this is imported directly
 
 console.log("🔥 leaflet.heat loaded:", typeof (L as any).heatLayer);
 
-
 interface Complaint {
   id: string;
   title?: string;
@@ -176,21 +175,39 @@ export default function ComplaintHeatmap({
 
     console.log("🔥 Creating heat layer with points:", heatData.length, heatData.slice(0, 3));
 
-    const layer = (L as any).heatLayer(heatData, {
-      radius: 35,
-      blur: 20,
-      maxZoom: 17,
-      max: 1.0,
-      gradient: {
-        0.2: "blue",
-        0.4: "lime",
-        0.6: "yellow",
-        0.8: "orange",
-        1.0: "red",
-      },
-    });
+    if (!(L as any).heatLayer) {
+  console.error("❌ leaflet.heat not loaded!");
+  return;
+}
 
-    heatLayerRef.current = layer.addTo(map);
+console.log("🗺️ Heatmap coordinate sample:", complaints.map(c => [c.latitude, c.longitude]));
+
+const layer = (L as any).heatLayer(heatData, {
+  radius: 40,
+  blur: 20,
+  minOpacity: 0.6,
+  maxZoom: 17,
+  gradient: {
+    0.1: "blue",
+    0.3: "lime",
+    0.5: "yellow",
+    0.7: "orange",
+    1.0: "red",
+  },
+}).addTo(map);
+
+heatLayerRef.current = layer;
+
+// bring heat layer on top of other layers
+layer.bringToFront();
+
+// force re-render visibility
+map.invalidateSize();
+setTimeout(() => {
+  map.invalidateSize();
+  console.log("✅ Heat layer visible refresh done");
+}, 800);
+
 
     // Optional: markers for debugging
     complaints.forEach((c) => {

@@ -175,31 +175,43 @@ export default function ComplaintHeatmap({
 
     console.log("🔥 Creating heat layer with points:", heatData.length, heatData.slice(0, 3));
 
-    if (!(L as any).heatLayer) {
+   if (!(L as any).heatLayer) {
   console.error("❌ leaflet.heat not loaded!");
   return;
 }
 
-console.log("🗺️ Heatmap coordinate sample:", complaints.map(c => [c.latitude, c.longitude]));
+const points = complaints.map((c) => [
+  Number(c.latitude),
+  Number(c.longitude),
+  1.0, // full intensity for visibility
+]);
 
-const layer = (L as any).heatLayer(heatData, {
-  radius: 40,
-  blur: 20,
-  minOpacity: 0.6,
+console.log("🔥 Plotting", points.length, "heat points:", points);
+
+const heatLayer = (L as any).heatLayer(points, {
+  radius: 55, // bigger radius for smaller datasets
+  blur: 35,
   maxZoom: 17,
+  minOpacity: 0.8, // ensure always visible
   gradient: {
-    0.1: "blue",
-    0.3: "lime",
-    0.5: "yellow",
-    0.7: "orange",
-    1.0: "red",
+    0.0: "#00f", // blue
+    0.25: "#0f0", // green
+    0.5: "#ff0", // yellow
+    0.75: "#f80", // orange
+    1.0: "#f00", // red
   },
 }).addTo(map);
 
-heatLayerRef.current = layer;
+heatLayer.bringToFront();
+heatLayerRef.current = heatLayer;
 
-// bring heat layer on top of other layers
-layer.bringToFront();
+// 👇 Important refreshes
+map.invalidateSize();
+setTimeout(() => {
+  map.invalidateSize();
+  console.log("✅ Heat layer visible refresh done");
+}, 1000);
+
 
 // force re-render visibility
 map.invalidateSize();

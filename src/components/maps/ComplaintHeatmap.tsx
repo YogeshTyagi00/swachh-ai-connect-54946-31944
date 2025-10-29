@@ -42,6 +42,7 @@ export default function ComplaintHeatmap({
   const fetchComplaints = async () => {
     try {
       const client = adminView ? supabaseService : supabase;
+      console.log("Fetching complaints from Supabase...");
       const { data, error } = await supabase
         .from("complaints")
         .select("*")

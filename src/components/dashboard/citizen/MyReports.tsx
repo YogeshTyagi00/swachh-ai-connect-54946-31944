@@ -152,7 +152,7 @@ export default function MyReports() {
           aiFormData.append("file", imageFile);
           aiFormData.append("location", formData.location || "User did not specify");
 
-          const aiResponse = await fetch("https://civic-bot-backend.onrender.com/api/predict", {
+          const aiResponse = await fetch("https://civic-bot-backend.onrender.com/predict", {
             method: "POST",
             body: aiFormData,
           });

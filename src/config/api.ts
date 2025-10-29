@@ -3,8 +3,8 @@ export const CIVIC_BOT_API_URL = "https://civic-bot-backend.onrender.com";
 
 // API endpoints
 export const API_ENDPOINTS = {
-  chatbot: ${CIVIC_BOT_API_URL}/chat,
-  predict: ${CIVIC_BOT_API_URL}/predict, // add this for image upload
+  chatbot: `${CIVIC_BOT_API_URL}/chat`,
+  predict: `${CIVIC_BOT_API_URL}/predict`, // add this for image upload
 };
 
 // Helper function to make API calls

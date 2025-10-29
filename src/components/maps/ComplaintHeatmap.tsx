@@ -3,14 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { supabaseService } from "@/services/supabaseService";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import "leaflet.heat";
 
 interface Complaint {
   id: string;
   title?: string;
   location_name?: string;
-  latitude?: number | null;
-  longitude?: number | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
   status?: string;
   priority?: string;
   description?: string;
@@ -33,7 +32,7 @@ export default function ComplaintHeatmap({
   const [error, setError] = useState<string | null>(null);
 
   const mapRef = useRef<L.Map | null>(null);
-  const heatLayerRef = useRef<any>(null);
+  const heatLayerRef = useRef<L.Layer | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapReadyRef = useRef(false);
@@ -56,18 +55,21 @@ export default function ComplaintHeatmap({
       if (error) throw error;
 
       const valid = (data || [])
-        .filter(
-          (c: any) =>
-            c.latitude !== null &&
-            c.longitude !== null &&
-            !isNaN(Number(c.latitude)) &&
-            !isNaN(Number(c.longitude))
-        )
+        .filter((c: any) => c.latitude && c.longitude)
         .map((c: any) => ({
           ...c,
-          latitude: Number(c.latitude),
-          longitude: Number(c.longitude),
-        }));
+          latitude: parseFloat(c.latitude),
+          longitude: parseFloat(c.longitude),
+        }))
+        .filter(
+          (c: any) =>
+            !isNaN(c.latitude) &&
+            !isNaN(c.longitude) &&
+            c.latitude >= -90 &&
+            c.latitude <= 90 &&
+            c.longitude >= -180 &&
+            c.longitude <= 180
+        );
 
       console.log("Fetched complaints count:", valid.length);
       if (valid.length > 0) console.log("Sample complaint:", valid[0]);
@@ -109,10 +111,7 @@ export default function ComplaintHeatmap({
       mapRef.current = map;
       mapReadyRef.current = true;
 
-      // invalidate map size multiple times to ensure proper render
-      [100, 500, 1200].forEach((delay) =>
-        setTimeout(() => map.invalidateSize(), delay)
-      );
+      [100, 500, 1200].forEach((delay) => setTimeout(() => map.invalidateSize(), delay));
 
       console.log("✅ Map initialized successfully!");
     };
@@ -145,92 +144,83 @@ export default function ComplaintHeatmap({
   useEffect(() => {
     if (!mapRef.current || !mapReadyRef.current) return;
 
-    try {
-      // clear previous layers
-      if (heatLayerRef.current) {
-        try {
-          mapRef.current.removeLayer(heatLayerRef.current);
-        } catch {}
-        heatLayerRef.current = null;
-      }
-      markersRef.current.forEach((m) => {
-        try {
-          mapRef.current?.removeLayer(m);
-        } catch {}
-      });
-      markersRef.current = [];
+    const updateHeatmap = async () => {
+      try {
+        const map = mapRef.current!;
+        // clear previous layers
+        if (heatLayerRef.current) {
+          map.removeLayer(heatLayerRef.current);
+          heatLayerRef.current = null;
+        }
+        markersRef.current.forEach((m) => {
+          try {
+            map.removeLayer(m);
+          } catch {}
+        });
+        markersRef.current = [];
 
-      if (complaints.length === 0) {
-        console.log("No complaints to plot.");
-        setTimeout(() => mapRef.current?.invalidateSize(), 300);
-        return;
-      }
+        if (complaints.length === 0) {
+          console.log("No complaints to plot.");
+          setTimeout(() => map.invalidateSize(), 300);
+          return;
+        }
 
-      // create heat points
-      const heatData = complaints.map((c) => [
-        c.latitude!,
-        c.longitude!,
-        c.priority === "high" ? 1.0 : c.priority === "medium" ? 0.6 : 0.3,
-      ]);
+        // dynamically import leaflet.heat to ensure it's loaded
+        const { heatLayer } = await import("leaflet.heat");
 
-      console.log("Creating heat layer with points:", heatData.length);
-      if (typeof (L as any).heatLayer === "function") {
-        heatLayerRef.current = (L as any)
-          .heatLayer(heatData, {
-            radius: 25,
-            blur: 15,
-            maxZoom: 17,
-            max: 1.0,
+        // create heat points
+        const heatData = complaints.map((c) => [
+          Number(c.latitude),
+          Number(c.longitude),
+          c.priority === "high" ? 0.9 : c.priority === "medium" ? 0.6 : 0.3,
+        ]) as L.HeatLatLngTuple[];
+
+        console.log("🔥 Creating heat layer with points:", heatData.length);
+        heatLayerRef.current = heatLayer(heatData, {
+          radius: 35,
+          blur: 20,
+          maxZoom: 17,
+          max: 1.0,
+          gradient: {
+            0.2: "blue",
+            0.4: "lime",
+            0.6: "yellow",
+            0.8: "orange",
+            1.0: "red",
+          },
+        }).addTo(map);
+
+        // Add small circle markers for clarity (optional)
+        complaints.forEach((c) => {
+          const marker = L.circleMarker([Number(c.latitude), Number(c.longitude)], {
+            radius: 5,
+            color: "black",
+            weight: 1,
+            fillColor: "#3b82f6",
+            fillOpacity: 0.7,
           })
-          .addTo(mapRef.current!);
-      }
-
-      // add markers
-      complaints.forEach((c) => {
-        const color =
-          c.status === "resolved"
-            ? "#22c55e"
-            : c.status === "in_progress"
-            ? "#f59e0b"
-            : "#ef4444";
-
-        const icon = L.icon({
-          iconUrl: `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28'><circle cx='14' cy='14' r='10' fill='${encodeURIComponent(
-            color
-          )}' stroke='white' stroke-width='2'/></svg>`,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14],
+            .bindPopup(`<strong>${c.title || "Complaint"}</strong><br>${c.location_name || ""}`)
+            .addTo(map);
+          markersRef.current.push(marker);
         });
 
-        const marker = L.marker([c.latitude!, c.longitude!], { icon })
-          .bindPopup(`<strong>${c.title || "Report"}</strong><br/>${c.location_name || ""}`)
-          .addTo(mapRef.current!);
-        markersRef.current.push(marker);
-      });
-
-      // center map
-      if (complaints.length === 1) {
-        mapRef.current.setView(
-          [complaints[0].latitude!, complaints[0].longitude!],
-          13
-        );
-      } else {
+        // Fit map to data bounds
         const bounds = L.latLngBounds(
-          complaints.map((c) => [c.latitude!, c.longitude!] as [number, number])
+          complaints.map((c) => [Number(c.latitude), Number(c.longitude)]) as [number, number][]
         );
-        mapRef.current.fitBounds(bounds.pad(0.2));
+        if (complaints.length > 1) map.fitBounds(bounds.pad(0.2));
+        else map.setView(bounds.getCenter(), 13);
+
+        [300, 800, 1500].forEach((delay) => setTimeout(() => map.invalidateSize(), delay));
+
+        console.log("✅ Heatmap and markers updated!");
+      } catch (err) {
+        console.error("Error updating heatmap:", err);
+        setError("Failed to update heatmap");
       }
+    };
 
-      // fix render delay
-      [300, 800, 1500].forEach((delay) =>
-        setTimeout(() => mapRef.current?.invalidateSize(), delay)
-      );
-
-      console.log("✅ Heatmap and markers updated!");
-    } catch (err) {
-      console.error("Error updating heatmap:", err);
-      setError("Failed to update heatmap");
-    }
+    updateHeatmap();
   }, [complaints]);
 
   // ✅ 4️⃣ Fetch complaints on mount & setup realtime
@@ -240,14 +230,10 @@ export default function ComplaintHeatmap({
     if (!adminView) {
       const channel = supabase
         .channel("complaints-changes")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "complaints" },
-          (payload) => {
-            console.log("Realtime update detected:", payload.eventType);
-            fetchComplaints();
-          }
-        )
+        .on("postgres_changes", { event: "*", schema: "public", table: "complaints" }, (payload) => {
+          console.log("Realtime update detected:", payload.eventType);
+          fetchComplaints();
+        })
         .subscribe();
 
       return () => {

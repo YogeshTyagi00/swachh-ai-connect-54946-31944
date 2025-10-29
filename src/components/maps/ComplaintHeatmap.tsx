@@ -1,21 +1,20 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseService } from "@/services/supabaseService";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "leaflet.heat";
 
-
 interface Complaint {
   id: string;
-  title: string;
-  location_name: string;
-  latitude: number;
-  longitude: number;
-  status: string;
-  priority: string;
-  description: string;
-  created_at: string;
+  title?: string;
+  location_name?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  status?: string;
+  priority?: string;
+  description?: string;
+  created_at?: string;
 }
 
 interface ComplaintHeatmapProps {
@@ -24,50 +23,58 @@ interface ComplaintHeatmapProps {
   adminView?: boolean;
 }
 
-export default function ComplaintHeatmap({ 
-  height = "600px", 
+export default function ComplaintHeatmap({
+  height = "600px",
   showControls = true,
-  adminView = false, 
+  adminView = false
 }: ComplaintHeatmapProps) {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showHeatmap, setShowHeatmap] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mapReady, setMapReady] = useState(false);
+
   const mapRef = useRef<L.Map | null>(null);
   const heatLayerRef = useRef<any>(null);
   const markersRef = useRef<L.Marker[]>([]);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapReadyRef = useRef(false);
 
+  // Fetch complaints - choose client based on adminView
   const fetchComplaints = async () => {
     try {
+      setLoading(true);
+      console.log("Fetching complaints from Supabase (adminView:", adminView, ")...");
       const client = adminView ? supabaseService : supabase;
-      console.log("Fetching complaints from Supabase...");
-      const { data, error } = await supabase
+
+      // select only necessary fields to reduce payload
+      const { data, error } = await client
         .from("complaints")
-        .select("*")
+        .select("id, title, location_name, latitude, longitude, status, priority, description, created_at")
         .not("latitude", "is", null)
         .not("longitude", "is", null)
         .order("created_at", { ascending: false })
         .limit(500);
 
-      if (error) {
-      console.error("Error fetching complaints:", error);
-      return;
-      }
+      if (error) throw error;
 
-      console.log("Fetched complaints count:", complaints.length);
-      console.log("Sample complaint:", complaints[0]);
-      
-      const validComplaints = (data || []).filter(
-        c => c.latitude != null && c.longitude != null && 
-             !isNaN(Number(c.latitude)) && !isNaN(Number(c.longitude))
-      );
-      
-      setComplaints(validComplaints);
+      const valid = (data || []).filter(
+        (c: any) =>
+          c.latitude !== null &&
+          c.longitude !== null &&
+          !isNaN(Number(c.latitude)) &&
+          !isNaN(Number(c.longitude))
+      ).map((c: any) => ({
+        ...c,
+        latitude: Number(c.latitude),
+        longitude: Number(c.longitude)
+      }));
+
+      console.log("Fetched complaints count:", valid.length);
+      if (valid.length > 0) console.log("Sample complaint:", valid[0]);
+
+      setComplaints(valid);
       setError(null);
-    } catch (error) {
-      console.error("Error fetching complaints:", error);
+    } catch (err) {
+      console.error("Error fetching complaints:", err);
       setError("Failed to load map data");
       setComplaints([]);
     } finally {
@@ -75,23 +82,17 @@ export default function ComplaintHeatmap({
     }
   };
 
-  // Initialize map after DOM is ready
+  // Initialize map with a short delay so parent layout can settle
   useEffect(() => {
-    // Wait for DOM to be ready
-    const timer = setTimeout(() => {
-      if (mapRef.current || !containerRef.current || typeof window === 'undefined') {
+    const timeout = window.setTimeout(() => {
+      if (mapRef.current) return; // already initialized
+      if (!containerRef.current) {
+        console.warn("Map container not ready");
         return;
       }
 
       try {
-        // Check if Leaflet is available
         console.log("Initializing Leaflet map...");
-        if (!L) {
-          console.error("Leaflet not loaded");
-          setError("Map library not loaded");
-          return;
-        }
-
         const map = L.map(containerRef.current, {
           center: [28.6139, 77.2090],
           zoom: 12,
@@ -103,172 +104,156 @@ export default function ComplaintHeatmap({
           maxZoom: 19,
         }).addTo(map);
 
-
         mapRef.current = map;
-        setMapReady(true);
+        mapReadyRef.current = true;
+        // sometimes initial size is wrong; invalidate after short delays
+        setTimeout(() => map.invalidateSize(), 100);
+        setTimeout(() => map.invalidateSize(), 500);
         console.log("Map initialized:", !!mapRef.current);
-        // Force map to resize after initialization
-        setTimeout(() => {
-          if (mapRef.current) {
-            mapRef.current.invalidateSize();
-          }
-        }, 100);
-        
-        setTimeout(() => {
-          if (mapRef.current) {
-            mapRef.current.invalidateSize();
-          }
-        }, 500);
       } catch (err) {
         console.error("Error initializing map:", err);
-        setError("Map failed to load, please refresh.");
+        setError("Map failed to load");
       }
-    }, 150);
+    }, 250); // small delay
 
     return () => {
-      clearTimeout(timer);
+      clearTimeout(timeout);
       if (mapRef.current) {
         try {
           mapRef.current.remove();
-        } catch (err) {
-          console.error("Error removing map:", err);
+        } catch (e) {
+          console.warn("Error removing map:", e);
         }
         mapRef.current = null;
-        setMapReady(false);
+        mapReadyRef.current = false;
       }
     };
   }, []);
 
-  // Update heatmap and markers
+  // update heatmap and markers whenever complaints or mapReady change
   useEffect(() => {
-    if (!mapRef.current || !mapReady || complaints.length === 0) return;
+    if (!mapRef.current || !mapReadyRef.current) {
+      // not ready yet
+      return;
+    }
 
     try {
-      // Clear existing layers
+      // Clear existing heat layer and markers
       if (heatLayerRef.current) {
-        mapRef.current.removeLayer(heatLayerRef.current);
+        try { mapRef.current.removeLayer(heatLayerRef.current); } catch (e) {}
+        heatLayerRef.current = null;
       }
-      markersRef.current.forEach(marker => mapRef.current?.removeLayer(marker));
-      markersRef.current = [];
-      console.log("✅ Heatmap layer added successfully!");
-
-      // Create heat data
-      const heatData = complaints.map((complaint) => {
-        const intensity = 
-          complaint.priority === "high" ? 1.0 : 
-          complaint.priority === "medium" ? 0.6 : 0.3;
-        
-        return [
-          parseFloat(String(complaint.latitude)), 
-          parseFloat(String(complaint.longitude)), 
-          intensity
-        ] as [number, number, number];
+      markersRef.current.forEach(marker => {
+        try { mapRef.current?.removeLayer(marker); } catch (e) {}
       });
+      markersRef.current = [];
 
-      // Add heatmap layer
-      if (showHeatmap && typeof (L as any).heatLayer === 'function') {
+      if (!complaints || complaints.length === 0) {
+        console.log("No complaints to plot.");
+        // still force map size recalculation
+        setTimeout(() => { mapRef.current?.invalidateSize(); }, 200);
+        return;
+      }
+
+      // build heat data
+      const heatData = complaints.map((c) => [Number(c.latitude), Number(c.longitude), 
+        (c.priority === "high" ? 1.0 : c.priority === "medium" ? 0.6 : 0.3)
+      ]);
+
+      console.log("Creating heat layer with points:", heatData.length);
+
+      if (heatData.length > 0 && typeof (L as any).heatLayer === "function") {
         heatLayerRef.current = (L as any).heatLayer(heatData, {
           radius: 25,
           blur: 15,
           maxZoom: 17,
-          max: 1.0,
-          gradient: {
-            0.0: '#0000ff',
-            0.3: '#00ffff',
-            0.5: '#00ff00',
-            0.7: '#ffff00',
-            1.0: '#ff0000'
-          }
+          max: 1.0
         }).addTo(mapRef.current);
       }
 
-      // Add markers
-      complaints.forEach((complaint) => {
-        const lat = parseFloat(String(complaint.latitude));
-        const lng = parseFloat(String(complaint.longitude));
-        
+      // markers (optional): small markers so user can click and see details
+      complaints.forEach((c) => {
+        const lat = Number(c.latitude);
+        const lng = Number(c.longitude);
         if (isNaN(lat) || isNaN(lng)) return;
 
-        const color = complaint.status === "resolved" ? "#22c55e" : 
-                     complaint.status === "in_progress" ? "#f59e0b" : "#ef4444";
-        
+        const color = c.status === "resolved" ? "#22c55e" : c.status === "in_progress" ? "#f59e0b" : "#ef4444";
+
         const icon = L.icon({
-          iconUrl: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="10" fill="${encodeURIComponent(color)}" stroke="white" stroke-width="3"/></svg>`,
-          iconSize: [30, 30],
-          iconAnchor: [15, 15],
+          iconUrl: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="10" fill="${encodeURIComponent(color)}" stroke="white" stroke-width="2"/></svg>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
         });
 
         const marker = L.marker([lat, lng], { icon })
-          .bindPopup(`
-            <div class="min-w-[200px] space-y-2 p-1">
-              <h4 class="font-semibold text-base">${complaint.title}</h4>
-              <p class="text-xs text-muted-foreground">${complaint.location_name || ''}</p>
-              <p class="text-sm line-clamp-2">${complaint.description}</p>
-              <div class="flex gap-2 flex-wrap">
-                <span class="text-xs px-2 py-1 rounded-full text-white" style="background-color: ${color}">
-                  ${complaint.status.replace("_", " ").toUpperCase()}
-                </span>
-                <span class="text-xs px-2 py-1 rounded-full text-white bg-blue-600">
-                  ${complaint.priority.toUpperCase()}
-                </span>
-              </div>
-              <p class="text-xs text-muted-foreground mt-1">
-                ${new Date(complaint.created_at).toLocaleDateString()}
-              </p>
-            </div>
-          `)
+          .bindPopup(`<strong>${c.title || "Report"}</strong><br/>${c.location_name || ""}`)
           .addTo(mapRef.current!);
-
         markersRef.current.push(marker);
       });
 
-      // Center map on first complaint
-      if (complaints.length > 0) {
-        const firstLat = parseFloat(String(complaints[0].latitude));
-        const firstLng = parseFloat(String(complaints[0].longitude));
-        if (!isNaN(firstLat) && !isNaN(firstLng)) {
-          mapRef.current.setView([firstLat, firstLng], 12);
+      // center / fit bounds
+      if (complaints.length === 1) {
+        const c = complaints[0];
+        mapRef.current.setView([Number(c.latitude), Number(c.longitude)], 13);
+      } else {
+        const latLngs = complaints.map(c => [Number(c.latitude), Number(c.longitude)] as [number, number]);
+        try {
+          const bounds = L.latLngBounds(latLngs);
+          mapRef.current.fitBounds(bounds.pad(0.2));
+        } catch (e) {
+          console.warn("fitBounds failed, using first point:", e);
+          const c = complaints[0];
+          mapRef.current.setView([Number(c.latitude), Number(c.longitude)], 12);
         }
       }
+
+      // ensure correct render after adjustments
+      setTimeout(() => mapRef.current?.invalidateSize(), 200);
+      setTimeout(() => mapRef.current?.invalidateSize(), 800);
+
+      console.log("Heatmap and markers updated.");
     } catch (err) {
       console.error("Error updating heatmap:", err);
       setError("Failed to update heatmap");
     }
-  }, [complaints, showHeatmap, mapReady]);
+  }, [complaints]);
 
-  // Real-time subscription
+  // fetch data on mount and set up realtime if applicable
   useEffect(() => {
     fetchComplaints();
 
-    const channel = supabase
-      .channel("complaints-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "complaints",
-        },
-        () => {
-          console.log("Real-time update detected, refreshing complaints...");
-          fetchComplaints();
+    // Only set up realtime subscription when using session client (not service role)
+    if (!adminView) {
+      const channel = supabase
+        .channel("complaints-changes")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "complaints" },
+          (payload) => {
+            console.log("Realtime update detected:", payload.eventType);
+            fetchComplaints();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        try {
+          supabase.removeChannel(channel);
+        } catch (e) {
+          console.warn("Failed to remove realtime channel:", e);
         }
-      )
-      .subscribe();
+      };
+    }
+    // if adminView, no realtime subscription; admin fetch currently uses service role
+    // (you can implement server-sent updates differently for admin if desired)
+  }, [adminView]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
+  // Basic UI fallback states
   if (loading) {
     return (
-      <div 
-        className="flex items-center justify-center rounded-lg border border-border bg-card"
-        style={{ height }}
-      >
+      <div className="flex items-center justify-center rounded-lg border border-border bg-card" style={{ height }}>
         <div className="text-center space-y-2">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
           <p className="text-muted-foreground">Loading heatmap...</p>
         </div>
       </div>
@@ -277,14 +262,11 @@ export default function ComplaintHeatmap({
 
   if (error) {
     return (
-      <div 
-        className="flex items-center justify-center rounded-lg border border-border bg-card"
-        style={{ height }}
-      >
+      <div className="flex items-center justify-center rounded-lg border border-border bg-card" style={{ height }}>
         <div className="text-center space-y-2">
           <div className="text-4xl">⚠️</div>
           <h3 className="text-xl font-semibold">Map failed to load</h3>
-          <p className="text-muted-foreground">Please refresh the page to try again.</p>
+          <p className="text-muted-foreground">{error}</p>
         </div>
       </div>
     );
@@ -292,16 +274,11 @@ export default function ComplaintHeatmap({
 
   if (!complaints.length && !loading) {
     return (
-      <div 
-        className="flex items-center justify-center rounded-lg border border-border bg-card"
-        style={{ height }}
-      >
+      <div className="flex items-center justify-center rounded-lg border border-border bg-card" style={{ height }}>
         <div className="text-center space-y-2">
           <div className="text-6xl">🗺️</div>
           <h3 className="text-xl font-semibold">No data yet</h3>
-          <p className="text-muted-foreground max-w-md">
-            Once reports come in, you'll see hotspots here.
-          </p>
+          <p className="text-muted-foreground max-w-md">Once reports come in, you'll see hotspots here.</p>
         </div>
       </div>
     );
@@ -312,32 +289,42 @@ export default function ComplaintHeatmap({
       {showControls && (
         <div className="absolute top-4 right-4 z-[1000] bg-card border border-border rounded-lg shadow-lg p-2">
           <button
-            onClick={() => setShowHeatmap(!showHeatmap)}
+            onClick={() => {
+              // toggling heat layer visibility
+              if (heatLayerRef.current) {
+                try {
+                  mapRef.current?.removeLayer(heatLayerRef.current);
+                  heatLayerRef.current = null;
+                } catch (e) {}
+              } else {
+                // re-add by refetching
+                fetchComplaints();
+              }
+            }}
             className="px-4 py-2 text-sm font-medium rounded-md transition-colors hover:bg-accent"
           >
-            {showHeatmap ? "Hide Heat Layer" : "Show Heat Layer"}
+            {heatLayerRef.current ? "Hide Heat Layer" : "Show Heat Layer"}
           </button>
         </div>
       )}
-      
-      <div 
+
+      <div
         ref={containerRef}
         className="rounded-lg overflow-hidden border border-border shadow-lg bg-muted"
         style={{ height, width: "100%" }}
       />
 
-      {/* Legend */}
       <div className="mt-4 flex flex-wrap gap-4 justify-center text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-red-500"></div>
+          <div className="w-4 h-4 rounded-full bg-red-500" />
           <span>Pending</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-orange-500"></div>
+          <div className="w-4 h-4 rounded-full bg-orange-500" />
           <span>In Progress</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-green-500"></div>
+          <div className="w-4 h-4 rounded-full bg-green-500" />
           <span>Resolved</span>
         </div>
         <div className="flex items-center gap-2">

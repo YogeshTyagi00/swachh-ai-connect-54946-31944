@@ -51,7 +51,13 @@ export default function ComplaintHeatmap({
         .order("created_at", { ascending: false })
         .limit(500);
 
-      if (error) throw error;
+      if (error) {
+      console.error("Error fetching complaints:", error);
+      return;
+      }
+
+      console.log("Fetched complaints count:", complaints.length);
+      console.log("Sample complaint:", complaints[0]);
       
       const validComplaints = (data || []).filter(
         c => c.latitude != null && c.longitude != null && 
@@ -79,6 +85,7 @@ export default function ComplaintHeatmap({
 
       try {
         // Check if Leaflet is available
+        console.log("Initializing Leaflet map...");
         if (!L) {
           console.error("Leaflet not loaded");
           setError("Map library not loaded");
@@ -96,9 +103,10 @@ export default function ComplaintHeatmap({
           maxZoom: 19,
         }).addTo(map);
 
+
         mapRef.current = map;
         setMapReady(true);
-        
+        console.log("Map initialized:", !!mapRef.current);
         // Force map to resize after initialization
         setTimeout(() => {
           if (mapRef.current) {
@@ -142,6 +150,7 @@ export default function ComplaintHeatmap({
       }
       markersRef.current.forEach(marker => mapRef.current?.removeLayer(marker));
       markersRef.current = [];
+      console.log("✅ Heatmap layer added successfully!");
 
       // Create heat data
       const heatData = complaints.map((complaint) => {

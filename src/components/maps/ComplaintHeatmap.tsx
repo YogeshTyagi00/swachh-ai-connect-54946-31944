@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { supabaseService } from "@/services/supabaseService";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import "leaflet.heat"; // 🔧 FIX — make sure this is imported directly
 
 interface Complaint {
   id: string;
@@ -37,7 +38,7 @@ export default function ComplaintHeatmap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapReadyRef = useRef(false);
 
-  // ✅ 1️⃣ Fetch complaints
+  // ✅ Fetch complaints
   const fetchComplaints = async () => {
     try {
       setLoading(true);
@@ -84,7 +85,7 @@ export default function ComplaintHeatmap({
     }
   };
 
-  // ✅ 2️⃣ Initialize map with retry system
+  // ✅ Initialize map
   useEffect(() => {
     let attempts = 0;
     const initMap = () => {
@@ -111,7 +112,10 @@ export default function ComplaintHeatmap({
       mapRef.current = map;
       mapReadyRef.current = true;
 
-      [100, 500, 1200].forEach((delay) => setTimeout(() => map.invalidateSize(), delay));
+      // 🔧 FIX — force map resize after a few intervals
+      [200, 600, 1200, 2000].forEach((delay) =>
+        setTimeout(() => map.invalidateSize(), delay)
+      );
 
       console.log("✅ Map initialized successfully!");
     };
@@ -140,90 +144,77 @@ export default function ComplaintHeatmap({
     };
   }, []);
 
-  // ✅ 3️⃣ Update heatmap when complaints change
+  // ✅ Update heatmap
   useEffect(() => {
     if (!mapRef.current || !mapReadyRef.current) return;
 
-    const updateHeatmap = async () => {
-      try {
-        const map = mapRef.current!;
-        // clear previous layers
-        if (heatLayerRef.current) {
-          map.removeLayer(heatLayerRef.current);
-          heatLayerRef.current = null;
-        }
-        markersRef.current.forEach((m) => {
-          try {
-            map.removeLayer(m);
-          } catch {}
-        });
-        markersRef.current = [];
+    const map = mapRef.current;
 
-        if (complaints.length === 0) {
-          console.log("No complaints to plot.");
-          setTimeout(() => map.invalidateSize(), 300);
-          return;
-        }
+    // Remove old layers
+    if (heatLayerRef.current) {
+      map.removeLayer(heatLayerRef.current);
+      heatLayerRef.current = null;
+    }
+    markersRef.current.forEach((m) => map.removeLayer(m));
+    markersRef.current = [];
 
-        // dynamically import leaflet.heat to ensure it's loaded
-        const { heatLayer } = await import("leaflet.heat");
+    if (complaints.length === 0) {
+      console.log("No complaints to plot.");
+      setTimeout(() => map.invalidateSize(), 300);
+      return;
+    }
 
-        // create heat points
-        const heatData = complaints.map((c) => [
-          Number(c.latitude),
-          Number(c.longitude),
-          c.priority === "high" ? 0.9 : c.priority === "medium" ? 0.6 : 0.3,
-        ]) as L.HeatLatLngTuple[];
+    // 🔧 FIX — directly use imported leaflet.heat
+    const heatData = complaints.map((c) => [
+      Number(c.latitude),
+      Number(c.longitude),
+      c.priority === "high" ? 0.9 : c.priority === "medium" ? 0.6 : 0.3,
+    ]) as L.HeatLatLngTuple[];
 
-        console.log("🔥 Creating heat layer with points:", heatData.length);
-        heatLayerRef.current = heatLayer(heatData, {
-          radius: 35,
-          blur: 20,
-          maxZoom: 17,
-          max: 1.0,
-          gradient: {
-            0.2: "blue",
-            0.4: "lime",
-            0.6: "yellow",
-            0.8: "orange",
-            1.0: "red",
-          },
-        }).addTo(map);
+    console.log("🔥 Creating heat layer with points:", heatData.length, heatData.slice(0, 3));
 
-        // Add small circle markers for clarity (optional)
-        complaints.forEach((c) => {
-          const marker = L.circleMarker([Number(c.latitude), Number(c.longitude)], {
-            radius: 5,
-            color: "black",
-            weight: 1,
-            fillColor: "#3b82f6",
-            fillOpacity: 0.7,
-          })
-            .bindPopup(`<strong>${c.title || "Complaint"}</strong><br>${c.location_name || ""}`)
-            .addTo(map);
-          markersRef.current.push(marker);
-        });
+    const layer = (L as any).heatLayer(heatData, {
+      radius: 35,
+      blur: 20,
+      maxZoom: 17,
+      max: 1.0,
+      gradient: {
+        0.2: "blue",
+        0.4: "lime",
+        0.6: "yellow",
+        0.8: "orange",
+        1.0: "red",
+      },
+    });
 
-        // Fit map to data bounds
-        const bounds = L.latLngBounds(
-          complaints.map((c) => [Number(c.latitude), Number(c.longitude)]) as [number, number][]
-        );
-        if (complaints.length > 1) map.fitBounds(bounds.pad(0.2));
-        else map.setView(bounds.getCenter(), 13);
+    heatLayerRef.current = layer.addTo(map);
 
-        [300, 800, 1500].forEach((delay) => setTimeout(() => map.invalidateSize(), delay));
+    // Optional: markers for debugging
+    complaints.forEach((c) => {
+      const marker = L.circleMarker([Number(c.latitude), Number(c.longitude)], {
+        radius: 4,
+        color: "black",
+        weight: 1,
+        fillColor: "#3b82f6",
+        fillOpacity: 0.7,
+      })
+        .bindPopup(`<strong>${c.title || "Complaint"}</strong><br>${c.location_name || ""}`)
+        .addTo(map);
+      markersRef.current.push(marker);
+    });
 
-        console.log("✅ Heatmap and markers updated!");
-      } catch (err) {
-        console.error("Error updating heatmap:", err);
-        setError("Failed to update heatmap");
-      }
-    };
+    const bounds = L.latLngBounds(
+      complaints.map((c) => [Number(c.latitude), Number(c.longitude)]) as [number, number][]
+    );
+    if (complaints.length > 1) map.fitBounds(bounds.pad(0.2));
+    else map.setView(bounds.getCenter(), 13);
 
-    updateHeatmap();
+    [400, 800, 1500].forEach((delay) => setTimeout(() => map.invalidateSize(), delay));
+
+    console.log("✅ Heatmap and markers updated!");
   }, [complaints]);
 
-  // ✅ 4️⃣ Fetch complaints on mount & setup realtime
+  // ✅ Fetch complaints & realtime updates
   useEffect(() => {
     fetchComplaints();
 
@@ -247,26 +238,19 @@ export default function ComplaintHeatmap({
   }, [adminView]);
 
   // ✅ UI states
-  if (loading) {
+  if (loading)
     return (
-      <div
-        className="flex items-center justify-center rounded-lg border border-border bg-card"
-        style={{ height }}
-      >
+      <div className="flex items-center justify-center rounded-lg border border-border bg-card" style={{ height }}>
         <div className="text-center space-y-2">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
           <p className="text-muted-foreground">Loading heatmap...</p>
         </div>
       </div>
     );
-  }
 
-  if (error) {
+  if (error)
     return (
-      <div
-        className="flex items-center justify-center rounded-lg border border-border bg-card"
-        style={{ height }}
-      >
+      <div className="flex items-center justify-center rounded-lg border border-border bg-card" style={{ height }}>
         <div className="text-center space-y-2">
           <div className="text-4xl">⚠️</div>
           <h3 className="text-xl font-semibold">Map failed to load</h3>
@@ -274,14 +258,10 @@ export default function ComplaintHeatmap({
         </div>
       </div>
     );
-  }
 
-  if (!complaints.length && !loading) {
+  if (!complaints.length && !loading)
     return (
-      <div
-        className="flex items-center justify-center rounded-lg border border-border bg-card"
-        style={{ height }}
-      >
+      <div className="flex items-center justify-center rounded-lg border border-border bg-card" style={{ height }}>
         <div className="text-center space-y-2">
           <div className="text-6xl">🗺️</div>
           <h3 className="text-xl font-semibold">No data yet</h3>
@@ -291,7 +271,6 @@ export default function ComplaintHeatmap({
         </div>
       </div>
     );
-  }
 
   return (
     <div className="relative">

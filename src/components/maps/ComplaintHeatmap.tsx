@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { supabaseService } from "@/services/supabaseService";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "leaflet.heat";
@@ -20,11 +21,13 @@ interface Complaint {
 interface ComplaintHeatmapProps {
   height?: string;
   showControls?: boolean;
+  adminView?: boolean;
 }
 
 export default function ComplaintHeatmap({ 
   height = "600px", 
-  showControls = true 
+  showControls = true,
+  adminView = false, 
 }: ComplaintHeatmapProps) {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +41,7 @@ export default function ComplaintHeatmap({
 
   const fetchComplaints = async () => {
     try {
+      const client = adminView ? supabaseService : supabase;
       const { data, error } = await supabase
         .from("complaints")
         .select("*")

@@ -9,10 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { supabaseService } from "@/services/supabaseService";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, MapPin, Calendar, Coins, Upload, Loader2 } from "lucide-react";
+import { Plus, MapPin, Calendar, Coins, Upload } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
-import LocationPreviewMap from "@/components/maps/LocationPreviewMap";
 
 interface Report {
   id: string;
@@ -116,96 +115,81 @@ export default function MyReports() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validation
-    if (!formData.latitude || !formData.longitude) {
-      toast({
-        title: "Location required",
-        description: "Please detect your location or enter coordinates manually.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setSubmitting(true);
 
     try {
       let imageUrl = "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b";
+      let aiPrediction = "";
+      let emailStatus = "";
 
-      // Step 1: Upload image if provided (parallel with AI processing)
-      const uploadPromise = imageFile ? (async () => {
+      // Step 1: Upload image to Supabase if provided
+      if (imageFile) {
         setUploadingImage(true);
         const fileExt = imageFile.name.split(".").pop();
         const timestamp = Date.now();
+        // Include user ID in folder path to match storage RLS policy
         const filePath = `${user!.id}/${timestamp}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from("report-images")
           .upload(filePath, imageFile, { upsert: true, contentType: imageFile.type });
 
-        if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
+        if (uploadError) {
+          setUploadingImage(false);
+          throw new Error(`Image upload failed: ${uploadError.message}`);
+        }
 
         const { data: { publicUrl } } = supabase.storage
           .from("report-images")
           .getPublicUrl(filePath);
 
+        imageUrl = publicUrl;
         setUploadingImage(false);
-        return publicUrl;
-      })() : Promise.resolve(imageUrl);
 
-      // Step 2: AI backend call (parallel, don't wait for it)
-      if (imageFile) {
-        const aiFormData = new FormData();
-        aiFormData.append("file", imageFile);
-        aiFormData.append("location", formData.location || "User did not specify");
+        // Step 2: Send image + location to AI backend
+        try {
+          const aiFormData = new FormData();
+          aiFormData.append("file", imageFile);
+          aiFormData.append("location", formData.location || "User did not specify");
 
-        fetch("https://civic-bot-backend.onrender.com/predict", {
-          method: "POST",
-          body: aiFormData,
-        }).then(aiResponse => {
+          const aiResponse = await fetch("https://civic-bot-backend.onrender.com/api/predict", {
+            method: "POST",
+            body: aiFormData,
+          });
+
           if (aiResponse.ok) {
-            aiResponse.json().then(aiData => {
-              const prediction = aiData.prediction || "Unknown";
-              const emailStatus = aiData.email_status || "Not sent";
-              toast({
-                title: "AI Analysis Complete",
-                description: `Detected: ${prediction} | Email: ${emailStatus}`,
-              });
-            });
+            const aiData = await aiResponse.json();
+            aiPrediction = aiData.prediction || "Unknown";
+            emailStatus = aiData.email_status || "Not sent";
+
+            // Show alert with AI results
+            alert(`Detected: ${aiPrediction}\nEmail Status: ${emailStatus}`);
           }
-        }).catch(() => {
-          // Silent fail - don't block submission
-        });
+        } catch (aiError) {
+          console.error("AI backend error:", aiError);
+          // Continue with report submission even if AI fails
+        }
       }
 
-      // Step 3: Wait for image upload, then insert report
-      imageUrl = await uploadPromise;
+      // Step 3: Insert report into Supabase
+      const newReport = await supabaseService.submitReport({
+        userId: user!.id,
+        title: formData.title,
+        description: formData.description,
+        locationName: formData.location,
+        latitude: formData.latitude || 28.6139,
+        longitude: formData.longitude || 77.209,
+        imageUrl,
+        priority: formData.priority,
+        category: formData.category,
+      });
 
-      const { data: newReport, error: insertError } = await supabase
-        .from("complaints")
-        .insert({
-          user_id: user!.id,
-          title: formData.title,
-          description: formData.description,
-          location_name: formData.location,
-          latitude: formData.latitude,
-          longitude: formData.longitude,
-          image_url: imageUrl,
-          priority: formData.priority,
-          status: "pending",
-          coins_earned: 10,
-        })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-
-      // Success - update UI immediately
+      // Wait for insertion to complete before updating UI
       if (newReport) {
-        setReports([newReport as Report, ...reports]);
+        setReports([newReport, ...reports]);
         toast({
-          title: "✅ Report submitted!",
-          description: "You'll earn 10 Green Coins once resolved.",
+          title: "Report submitted successfully!",
+          description: "Your report is being reviewed. You'll earn coins once resolved!",
         });
         
         // Reset form and close dialog
@@ -214,6 +198,7 @@ export default function MyReports() {
         setIsOpen(false);
       }
     } catch (error) {
+      console.error("Report submission error:", error);
       toast({
         title: "Submission failed",
         description: error instanceof Error ? error.message : "Please try again.",
@@ -291,7 +276,7 @@ export default function MyReports() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Location (Required)</Label>
+                  <Label>Coordinates</Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -299,32 +284,9 @@ export default function MyReports() {
                     onClick={detectLocation}
                     disabled={detectingLocation}
                   >
-                    {detectingLocation ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Detecting location...
-                      </>
-                    ) : (
-                      <>
-                        <MapPin className="h-4 w-4 mr-2" />
-                        Use My Current Location
-                      </>
-                    )}
+                    <MapPin className="h-4 w-4 mr-2" />
+                    {detectingLocation ? "Detecting..." : "Use My Current Location"}
                   </Button>
-                  
-                  {formData.latitude !== 0 && formData.longitude !== 0 && (
-                    <div className="space-y-2">
-                      <div className="text-sm text-muted-foreground">
-                        Location: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
-                      </div>
-                      <LocationPreviewMap 
-                        latitude={formData.latitude} 
-                        longitude={formData.longitude}
-                        height="180px"
-                      />
-                    </div>
-                  )}
-                  
                   <div className="grid grid-cols-2 gap-2">
                     <Input
                       type="number"
@@ -332,7 +294,6 @@ export default function MyReports() {
                       placeholder="Latitude"
                       value={formData.latitude || ""}
                       onChange={(e) => setFormData({ ...formData, latitude: parseFloat(e.target.value) || 0 })}
-                      required
                     />
                     <Input
                       type="number"
@@ -340,7 +301,6 @@ export default function MyReports() {
                       placeholder="Longitude"
                       value={formData.longitude || ""}
                       onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) || 0 })}
-                      required
                     />
                   </div>
                 </div>
@@ -408,22 +368,7 @@ export default function MyReports() {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={submitting || uploadingImage}>
-                  {uploadingImage ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Uploading Image...
-                    </>
-                  ) : submitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Submitting Report...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Submit Report
-                    </>
-                  )}
+                  {uploadingImage ? "Uploading Image..." : submitting ? "Submitting..." : "Submit Report"}
                 </Button>
               </form>
             </DialogContent>

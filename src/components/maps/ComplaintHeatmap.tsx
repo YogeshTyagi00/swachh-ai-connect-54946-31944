@@ -44,10 +44,8 @@ export default function ComplaintHeatmap({
   const fetchComplaints = async () => {
     try {
       setLoading(true);
-      console.log("Fetching complaints from Supabase (adminView:", adminView, ")...");
-      const client = adminView ? supabaseService : supabase;
 
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from("complaints")
         .select("id, title, location_name, latitude, longitude, status, priority, description, created_at")
         .not("latitude", "is", null)
@@ -87,59 +85,30 @@ export default function ComplaintHeatmap({
     }
   };
 
-  // ✅ Initialize map
+  // ✅ Initialize map - immediately, no delays
   useEffect(() => {
-    let attempts = 0;
-    const initMap = () => {
-      if (mapRef.current || !containerRef.current) return;
+    if (mapRef.current || !containerRef.current) return;
 
-      const rect = containerRef.current.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) {
-        console.warn("Map container not ready, retrying...");
-        return;
-      }
+    const map = L.map(containerRef.current, {
+      center: [28.6139, 77.209],
+      zoom: 12,
+      scrollWheelZoom: true,
+    });
 
-      console.log("Initializing Leaflet map...");
-      const map = L.map(containerRef.current, {
-        center: [28.6139, 77.209],
-        zoom: 12,
-        scrollWheelZoom: true,
-      });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors",
+      maxZoom: 19,
+    }).addTo(map);
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors",
-        maxZoom: 19,
-      }).addTo(map);
+    mapRef.current = map;
+    mapReadyRef.current = true;
 
-      mapRef.current = map;
-      mapReadyRef.current = true;
-
-      // 🔧 FIX — force map resize after a few intervals
-      [200, 600, 1200, 2000].forEach((delay) =>
-        setTimeout(() => map.invalidateSize(), delay)
-      );
-
-      console.log("✅ Map initialized successfully!");
-    };
-
-    const interval = setInterval(() => {
-      if (mapRef.current) {
-        clearInterval(interval);
-        return;
-      }
-      attempts++;
-      initMap();
-      if (attempts > 10) clearInterval(interval);
-    }, 300);
+    // Single resize after initialization
+    setTimeout(() => map.invalidateSize(), 100);
 
     return () => {
-      clearInterval(interval);
       if (mapRef.current) {
-        try {
-          mapRef.current.remove();
-        } catch (e) {
-          console.warn("Error removing map:", e);
-        }
+        mapRef.current.remove();
         mapRef.current = null;
         mapReadyRef.current = false;
       }
@@ -161,64 +130,33 @@ export default function ComplaintHeatmap({
     markersRef.current = [];
 
     if (complaints.length === 0) {
-      console.log("No complaints to plot.");
-      setTimeout(() => map.invalidateSize(), 300);
       return;
     }
 
-    // 🔧 FIX — directly use imported leaflet.heat
-    const heatData = complaints.map((c) => [
+    if (!(L as any).heatLayer) {
+      console.error("❌ leaflet.heat not loaded!");
+      return;
+    }
+
+    const points = complaints.map((c) => [
       Number(c.latitude),
       Number(c.longitude),
-      c.priority === "high" ? 0.9 : c.priority === "medium" ? 0.6 : 0.3,
-    ]) as L.HeatLatLngTuple[];
+      c.priority === "high" ? 1.0 : c.priority === "medium" ? 0.7 : 0.4,
+    ]);
 
-    console.log("🔥 Creating heat layer with points:", heatData.length, heatData.slice(0, 3));
+    const heatLayer = (L as any).heatLayer(points, {
+      radius: 50,
+      blur: 30,
+      maxZoom: 17,
+      minOpacity: 0.6,
+      gradient: {
+        0.0: "#3b82f6",
+        0.5: "#f59e0b", 
+        1.0: "#ef4444",
+      },
+    }).addTo(map);
 
-   if (!(L as any).heatLayer) {
-  console.error("❌ leaflet.heat not loaded!");
-  return;
-}
-
-const points = complaints.map((c) => [
-  Number(c.latitude),
-  Number(c.longitude),
-  1.0, // full intensity for visibility
-]);
-
-console.log("🔥 Plotting", points.length, "heat points:", points);
-
-const heatLayer = (L as any).heatLayer(points, {
-  radius: 55, // bigger radius for smaller datasets
-  blur: 35,
-  maxZoom: 17,
-  minOpacity: 0.8, // ensure always visible
-  gradient: {
-    0.0: "#00f", // blue
-    0.25: "#0f0", // green
-    0.5: "#ff0", // yellow
-    0.75: "#f80", // orange
-    1.0: "#f00", // red
-  },
-}).addTo(map);
-
-heatLayer.bringToFront();
-heatLayerRef.current = heatLayer;
-
-// 👇 Important refreshes
-map.invalidateSize();
-setTimeout(() => {
-  map.invalidateSize();
-  console.log("✅ Heat layer visible refresh done");
-}, 1000);
-
-
-// force re-render visibility
-map.invalidateSize();
-setTimeout(() => {
-  map.invalidateSize();
-  console.log("✅ Heat layer visible refresh done");
-}, 800);
+    heatLayerRef.current = heatLayer;
 
 
     // Optional: markers for debugging
@@ -241,33 +179,24 @@ setTimeout(() => {
     if (complaints.length > 1) map.fitBounds(bounds.pad(0.2));
     else map.setView(bounds.getCenter(), 13);
 
-    [400, 800, 1500].forEach((delay) => setTimeout(() => map.invalidateSize(), delay));
-
-    console.log("✅ Heatmap and markers updated!");
+    map.invalidateSize();
   }, [complaints]);
 
   // ✅ Fetch complaints & realtime updates
   useEffect(() => {
     fetchComplaints();
 
-    if (!adminView) {
-      const channel = supabase
-        .channel("complaints-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "complaints" }, (payload) => {
-          console.log("Realtime update detected:", payload.eventType);
-          fetchComplaints();
-        })
-        .subscribe();
+    const channel = supabase
+      .channel("complaints-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "complaints" }, () => {
+        fetchComplaints();
+      })
+      .subscribe();
 
-      return () => {
-        try {
-          supabase.removeChannel(channel);
-        } catch (e) {
-          console.warn("Failed to remove realtime channel:", e);
-        }
-      };
-    }
-  }, [adminView]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // ✅ UI states
   if (loading)

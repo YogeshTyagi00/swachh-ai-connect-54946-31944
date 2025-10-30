@@ -130,7 +130,7 @@ export default function AdminDashboard() {
             <CardContent>
               <ErrorBoundary>
                 <Suspense fallback={<Skeleton className="h-[600px]" />}>
-                  <ComplaintHeatmap height="600px" showControls={true} />
+                  <ComplaintHeatmap height="600px" showControls={true} adminView={true}/>
                 </Suspense>
               </ErrorBoundary>
             </CardContent>

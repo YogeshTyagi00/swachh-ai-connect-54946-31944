@@ -66,7 +66,7 @@ export default function ComplaintHeatmap({
 
   // Initialize map after DOM is ready
   useEffect(() => {
-    // Wait for DOM to be ready
+    // Wait for DOM to be ready with multiple checks
     const timer = setTimeout(() => {
       if (mapRef.current || !containerRef.current || typeof window === 'undefined') {
         return;
@@ -80,7 +80,15 @@ export default function ComplaintHeatmap({
           return;
         }
 
-        const map = L.map(containerRef.current, {
+        // Ensure container has dimensions
+        const container = containerRef.current;
+        if (!container.offsetWidth || !container.offsetHeight) {
+          console.error("Container has no dimensions");
+          setError("Map container not ready");
+          return;
+        }
+
+        const map = L.map(container, {
           center: [28.6139, 77.2090],
           zoom: 12,
           scrollWheelZoom: true,
@@ -94,7 +102,7 @@ export default function ComplaintHeatmap({
         mapRef.current = map;
         setMapReady(true);
         
-        // Force map to resize after initialization
+        // Force map to resize after initialization and again after a delay
         setTimeout(() => {
           if (mapRef.current) {
             mapRef.current.invalidateSize();
@@ -110,7 +118,7 @@ export default function ComplaintHeatmap({
         console.error("Error initializing map:", err);
         setError("Map failed to load, please refresh.");
       }
-    }, 150);
+    }, 200); // Increased delay for lazy-loaded components
 
     return () => {
       clearTimeout(timer);

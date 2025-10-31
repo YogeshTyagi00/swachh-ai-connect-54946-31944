@@ -16,17 +16,17 @@ interface Complaint {
   priority: string;
 }
 
-interface ComplaintHeatmapProps {
+interface ComplaintMapProps {
   height?: string;
   showControls?: boolean;
   adminView?: boolean;
 }
 
-export default function ComplaintHeatmap({
+export default function ComplaintMap({
   height = "600px",
   showControls = true,
   adminView = false,
-}: ComplaintHeatmapProps) {
+}: ComplaintMapProps) {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,10 +37,9 @@ export default function ComplaintHeatmap({
   const markersRef = useRef<L.Marker[]>([]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapInitializedRef = useRef(false);
-
   const { toast } = useToast();
 
-  // Fetch complaints data - optimized query
+  // 🧭 Fetch complaints data
   const fetchComplaints = async () => {
     try {
       setLoading(true);
@@ -90,41 +89,33 @@ export default function ComplaintHeatmap({
     }
   };
 
-  // Initialize map once
+  // 🗺️ Initialize map
   useEffect(() => {
     if (mapInitializedRef.current || !containerRef.current) return;
 
-    const timer = setTimeout(() => {
-      try {
-        if (!containerRef.current) return;
+    try {
+      const map = L.map(containerRef.current, {
+        center: [28.6139, 77.209],
+        zoom: 12,
+        scrollWheelZoom: true,
+        zoomControl: true,
+      });
 
-        const map = L.map(containerRef.current, {
-          center: [28.6139, 77.209],
-          zoom: 12,
-          scrollWheelZoom: true,
-          zoomControl: true,
-        });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap",
+        maxZoom: 19,
+      }).addTo(map);
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: "&copy; OpenStreetMap",
-          maxZoom: 19,
-        }).addTo(map);
+      mapRef.current = map;
+      mapInitializedRef.current = true;
 
-        mapRef.current = map;
-        mapInitializedRef.current = true;
-
-        // Ensure proper sizing
-        setTimeout(() => {
-          map.invalidateSize();
-        }, 100);
-      } catch (err) {
-        console.error("Map initialization error:", err);
-        setError("Failed to initialize map");
-      }
-    }, 50);
+      setTimeout(() => map.invalidateSize(), 200);
+    } catch (err) {
+      console.error("Map initialization error:", err);
+      setError("Failed to initialize map");
+    }
 
     return () => {
-      clearTimeout(timer);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -133,7 +124,7 @@ export default function ComplaintHeatmap({
     };
   }, []);
 
-  // Update map layers when data or view mode changes
+  // 🟢 Update map layers
   useEffect(() => {
     if (!mapRef.current || !mapInitializedRef.current || loading) return;
 
@@ -149,7 +140,7 @@ export default function ComplaintHeatmap({
 
     if (complaints.length === 0) return;
 
-    // Add heatmap layer
+    // 🔥 Heatmap mode
     if (viewMode === "heatmap" && (L as any).heatLayer) {
       const heatPoints = complaints.map((c) => [
         c.latitude,
@@ -163,17 +154,17 @@ export default function ComplaintHeatmap({
         maxZoom: 17,
         minOpacity: 0.5,
         gradient: {
-          0.0: "#10b981", // green (clean)
-          0.4: "#3b82f6", // blue
-          0.7: "#f59e0b", // orange
-          1.0: "#ef4444", // red (high density)
+          0.0: "#10b981",
+          0.4: "#3b82f6",
+          0.7: "#f59e0b",
+          1.0: "#ef4444",
         },
       }).addTo(map);
 
       heatLayerRef.current = heatLayer;
     }
 
-    // Add markers
+    // 📍 Marker mode
     complaints.forEach((c) => {
       const statusColor =
         c.status === "resolved"
@@ -191,14 +182,12 @@ export default function ComplaintHeatmap({
       })
         .bindPopup(`
           <div style="min-width: 180px;">
-            <strong style="font-size: 14px;">${c.title}</strong><br/>
+            <strong>${c.title}</strong><br/>
             <span style="font-size: 12px; color: #666;">${
               c.location_name || "Unknown location"
             }</span><br/>
-            <span style="font-size: 11px; color: #999;">Priority: ${
-              c.priority
-            }</span><br/>
-            <span style="font-size: 11px; color: #999;">Status: ${c.status}</span>
+            <small>Priority: ${c.priority}</small><br/>
+            <small>Status: ${c.status}</small>
           </div>
         `)
         .addTo(map);
@@ -206,32 +195,29 @@ export default function ComplaintHeatmap({
       markersRef.current.push(marker);
     });
 
-    // Auto-fit bounds to show all complaints
+    // Adjust map bounds
     if (complaints.length === 1) {
       map.setView([complaints[0].latitude, complaints[0].longitude], 14);
-    } else if (complaints.length > 1) {
+    } else {
       const bounds = L.latLngBounds(
-        complaints.map((c) => [c.latitude, c.longitude] as [number, number])
+        complaints.map((c) => [c.latitude, c.longitude])
       );
       map.fitBounds(bounds, { padding: [50, 50] });
     }
 
-    setTimeout(() => map.invalidateSize(), 50);
+    setTimeout(() => map.invalidateSize(), 100);
   }, [complaints, loading, viewMode]);
 
-  // Fetch data and setup real-time updates
+  // 🔁 Fetch data and subscribe to real-time updates
   useEffect(() => {
     fetchComplaints();
 
-    // Real-time subscription
     const channel = supabase
       .channel("realtime-heatmap-complaints")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "complaints" },
-        () => {
-          fetchComplaints();
-        }
+        () => fetchComplaints()
       )
       .subscribe();
 
@@ -240,7 +226,7 @@ export default function ComplaintHeatmap({
     };
   }, []);
 
-  // Loading state
+  // 🕓 Loading
   if (loading) {
     return (
       <div
@@ -257,7 +243,7 @@ export default function ComplaintHeatmap({
     );
   }
 
-  // Error state
+  // ⚠️ Error
   if (error) {
     return (
       <div
@@ -267,15 +253,10 @@ export default function ComplaintHeatmap({
         <div className="text-center space-y-2 px-4">
           <div className="text-4xl">⚠️</div>
           <h3 className="text-lg font-semibold text-destructive">
-            Failed to load heatmap
+            Failed to load map
           </h3>
           <p className="text-sm text-muted-foreground">{error}</p>
-          <Button
-            onClick={fetchComplaints}
-            variant="outline"
-            size="sm"
-            className="mt-2"
-          >
+          <Button onClick={fetchComplaints} variant="outline" size="sm">
             Retry
           </Button>
         </div>
@@ -283,8 +264,8 @@ export default function ComplaintHeatmap({
     );
   }
 
-  // Empty state
-  if (!complaints.length && !loading) {
+  // 🌍 Empty
+  if (!complaints.length) {
     return (
       <div
         className="flex items-center justify-center rounded-lg border border-border bg-card"
@@ -294,14 +275,14 @@ export default function ComplaintHeatmap({
           <div className="text-5xl">🗺️</div>
           <h3 className="text-lg font-semibold">No reports yet</h3>
           <p className="text-sm text-muted-foreground max-w-md">
-            Once reports are submitted, they'll appear on the heatmap in real-time
+            Once reports are submitted, they’ll appear here in real-time.
           </p>
         </div>
       </div>
     );
   }
 
-  // Render heatmap
+  // ✅ Final Render
   return (
     <div className="relative w-full">
       {showControls && (
@@ -311,32 +292,25 @@ export default function ComplaintHeatmap({
               onClick={() => setViewMode("heatmap")}
               variant={viewMode === "heatmap" ? "default" : "ghost"}
               size="sm"
-              className="flex items-center gap-2"
             >
-              <span>🔥</span>
-              <span className="hidden sm:inline">Heat</span>
+              🔥 Heat
             </Button>
             <Button
               onClick={() => setViewMode("markers")}
               variant={viewMode === "markers" ? "default" : "ghost"}
               size="sm"
-              className="flex items-center gap-2"
             >
-              <span>📍</span>
-              <span className="hidden sm:inline">Markers</span>
+              📍 Markers
             </Button>
           </div>
-          <div className="bg-card/95 backdrop-blur-sm border border-border rounded-lg shadow-lg p-1.5">
-            <Button
-              onClick={fetchComplaints}
-              variant="ghost"
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              <span>🔄</span>
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-          </div>
+          <Button
+            onClick={fetchComplaints}
+            variant="ghost"
+            size="sm"
+            className="bg-card/95 backdrop-blur-sm border border-border shadow-lg"
+          >
+            🔄 Refresh
+          </Button>
         </div>
       )}
 
@@ -344,28 +318,23 @@ export default function ComplaintHeatmap({
         ref={containerRef}
         className="rounded-2xl overflow-hidden border border-border shadow-md bg-muted w-full"
         style={{ height, minHeight: height }}
-        role="application"
-        aria-label="Complaint heatmap"
       />
 
       <div className="mt-3 flex flex-wrap items-center gap-3 justify-center text-xs sm:text-sm">
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-destructive" />
+          <div className="w-3 h-3 rounded-full bg-destructive" />
           <span className="text-muted-foreground">High Density</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-[#f59e0b]" />
+          <div className="w-3 h-3 rounded-full bg-[#f59e0b]" />
           <span className="text-muted-foreground">Medium</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-[#10b981]" />
-          <span className="text-muted-foreground">Clean Areas</span>
+          <div className="w-3 h-3 rounded-full bg-[#10b981]" />
+          <span className="text-muted-foreground">Clean</span>
         </div>
         <div className="hidden sm:flex items-center gap-2">
-          <span className="text-muted-foreground">|</span>
-          <span className="font-semibold text-foreground">
-            {complaints.length}
-          </span>
+          <span className="font-semibold text-foreground">{complaints.length}</span>
           <span className="text-muted-foreground">reports</span>
         </div>
       </div>

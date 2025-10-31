@@ -43,7 +43,7 @@ export default function Contact() {
               <CardContent className="pt-6 text-center">
                 <Mail className="h-8 w-8 text-primary mx-auto mb-3" />
                 <h3 className="font-semibold mb-1">Email</h3>
-                <p className="text-sm text-muted-foreground">support@swachhai.gov.in</p>
+                <p className="text-sm text-muted-foreground">devgirdhar05@gmail.com</p>
               </CardContent>
             </Card>
 
@@ -51,7 +51,7 @@ export default function Contact() {
               <CardContent className="pt-6 text-center">
                 <Phone className="h-8 w-8 text-primary mx-auto mb-3" />
                 <h3 className="font-semibold mb-1">Phone</h3>
-                <p className="text-sm text-muted-foreground">1800-XXX-XXXX (Toll Free)</p>
+                <p className="text-sm text-muted-foreground">+91 9079933627</p>
               </CardContent>
             </Card>
 

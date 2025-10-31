@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "leaflet.heat";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 interface Complaint {
   id: string;
@@ -30,20 +31,20 @@ export default function ComplaintHeatmap({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"heatmap" | "markers">("heatmap");
-  const [mapError, setMapError] = useState(false);
 
   const mapRef = useRef<L.Map | null>(null);
   const heatLayerRef = useRef<L.Layer | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapReadyRef = useRef(false);
+  const mapInitializedRef = useRef(false);
 
   const { toast } = useToast();
 
-  // Optimized fetch - only essential fields, limited to 500 reports
+  // Fetch complaints data - optimized query
   const fetchComplaints = async () => {
     try {
       setLoading(true);
+      setError(null);
 
       const { data, error } = await supabase
         .from("complaints")
@@ -55,7 +56,7 @@ export default function ComplaintHeatmap({
 
       if (error) throw error;
 
-      const valid = (data || [])
+      const validComplaints = (data || [])
         .map((c: any) => ({
           id: c.id,
           title: c.title,
@@ -75,15 +76,13 @@ export default function ComplaintHeatmap({
             c.longitude <= 180
         );
 
-      setComplaints(valid);
-      setError(null);
+      setComplaints(validComplaints);
     } catch (err) {
-      const errorMsg = "Failed to load map data";
-      setError(errorMsg);
-      setComplaints([]);
+      console.error("Error fetching complaints:", err);
+      setError("Failed to load map data");
       toast({
-        title: "Map Error",
-        description: errorMsg,
+        title: "Error",
+        description: "Failed to load heatmap data",
         variant: "destructive",
       });
     } finally {
@@ -91,12 +90,11 @@ export default function ComplaintHeatmap({
     }
   };
 
-  // Initialize map with proper timing
+  // Initialize map once
   useEffect(() => {
-    if (mapRef.current || !containerRef.current) return;
+    if (mapInitializedRef.current || !containerRef.current) return;
 
-    // Use setTimeout to ensure DOM is ready
-    const initTimer = setTimeout(() => {
+    const timer = setTimeout(() => {
       try {
         if (!containerRef.current) return;
 
@@ -113,37 +111,35 @@ export default function ComplaintHeatmap({
         }).addTo(map);
 
         mapRef.current = map;
-        mapReadyRef.current = true;
+        mapInitializedRef.current = true;
 
-        // Ensure proper sizing after initialization
+        // Ensure proper sizing
         setTimeout(() => {
-          if (mapRef.current) {
-            mapRef.current.invalidateSize();
-          }
+          map.invalidateSize();
         }, 100);
       } catch (err) {
         console.error("Map initialization error:", err);
-        setMapError(true);
+        setError("Failed to initialize map");
       }
     }, 50);
 
     return () => {
-      clearTimeout(initTimer);
+      clearTimeout(timer);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
-        mapReadyRef.current = false;
+        mapInitializedRef.current = false;
       }
     };
   }, []);
 
-  // Update map layers dynamically based on view mode
+  // Update map layers when data or view mode changes
   useEffect(() => {
-    if (!mapRef.current || !mapReadyRef.current || loading) return;
+    if (!mapRef.current || !mapInitializedRef.current || loading) return;
 
     const map = mapRef.current;
 
-    // Remove old layers
+    // Clear existing layers
     if (heatLayerRef.current) {
       map.removeLayer(heatLayerRef.current);
       heatLayerRef.current = null;
@@ -153,101 +149,90 @@ export default function ComplaintHeatmap({
 
     if (complaints.length === 0) return;
 
-    // Add heatmap layer if in heatmap mode
-    if (viewMode === "heatmap") {
-      if (!(L as any).heatLayer) {
-        toast({
-          title: "Heatmap Error",
-          description: "Heatmap library not loaded. Switching to marker view.",
-          variant: "destructive",
-        });
-        setViewMode("markers");
-        return;
-      }
-
-      // Priority-weighted heatmap points
-      const points = complaints.map((c) => [
+    // Add heatmap layer
+    if (viewMode === "heatmap" && (L as any).heatLayer) {
+      const heatPoints = complaints.map((c) => [
         c.latitude,
         c.longitude,
         c.priority === "high" ? 1.0 : c.priority === "medium" ? 0.7 : 0.5,
       ]);
 
-      const heatLayer = (L as any).heatLayer(points, {
-        radius: 45,
-        blur: 25,
+      const heatLayer = (L as any).heatLayer(heatPoints, {
+        radius: 25,
+        blur: 20,
         maxZoom: 17,
         minOpacity: 0.5,
         gradient: {
-          0.0: "#10b981",  // green (clean areas)
-          0.4: "#3b82f6",  // blue
-          0.7: "#f59e0b",  // orange
-          1.0: "#ef4444",  // red (high density)
+          0.0: "#10b981", // green (clean)
+          0.4: "#3b82f6", // blue
+          0.7: "#f59e0b", // orange
+          1.0: "#ef4444", // red (high density)
         },
       }).addTo(map);
 
       heatLayerRef.current = heatLayer;
     }
 
-    // Add markers (always shown, more prominent in marker-only mode)
+    // Add markers
     complaints.forEach((c) => {
-      const color = 
-        c.status === "resolved" ? "#10b981" :
-        c.status === "in-progress" ? "#f59e0b" : "#ef4444";
+      const statusColor =
+        c.status === "resolved"
+          ? "#10b981"
+          : c.status === "in-progress"
+          ? "#f59e0b"
+          : "#ef4444";
 
       const marker = L.circleMarker([c.latitude, c.longitude], {
         radius: viewMode === "markers" ? 8 : 5,
         color: "#fff",
         weight: 2,
-        fillColor: color,
+        fillColor: statusColor,
         fillOpacity: viewMode === "markers" ? 0.9 : 0.8,
       })
         .bindPopup(`
           <div style="min-width: 180px;">
             <strong style="font-size: 14px;">${c.title}</strong><br/>
-            <span style="font-size: 12px; color: #666;">${c.location_name || "Unknown location"}</span><br/>
-            <span style="font-size: 11px; color: #999;">Priority: ${c.priority}</span><br/>
+            <span style="font-size: 12px; color: #666;">${
+              c.location_name || "Unknown location"
+            }</span><br/>
+            <span style="font-size: 11px; color: #999;">Priority: ${
+              c.priority
+            }</span><br/>
             <span style="font-size: 11px; color: #999;">Status: ${c.status}</span>
           </div>
         `)
         .addTo(map);
+
       markersRef.current.push(marker);
     });
 
-    // Auto-center on average location
-    const avgLat = complaints.reduce((sum, c) => sum + c.latitude, 0) / complaints.length;
-    const avgLng = complaints.reduce((sum, c) => sum + c.longitude, 0) / complaints.length;
-    
+    // Auto-fit bounds to show all complaints
     if (complaints.length === 1) {
-      map.setView([avgLat, avgLng], 14);
-    } else {
+      map.setView([complaints[0].latitude, complaints[0].longitude], 14);
+    } else if (complaints.length > 1) {
       const bounds = L.latLngBounds(
         complaints.map((c) => [c.latitude, c.longitude] as [number, number])
       );
-      map.fitBounds(bounds.pad(0.1));
+      map.fitBounds(bounds, { padding: [50, 50] });
     }
 
-    // Ensure proper sizing
-    setTimeout(() => {
-      if (mapRef.current) {
-        mapRef.current.invalidateSize();
-      }
-    }, 50);
-  }, [complaints, loading, viewMode, toast]);
+    setTimeout(() => map.invalidateSize(), 50);
+  }, [complaints, loading, viewMode]);
 
-  // Fetch complaints & real-time updates
+  // Fetch data and setup real-time updates
   useEffect(() => {
     fetchComplaints();
 
+    // Real-time subscription
     const channel = supabase
-      .channel("complaints-realtime-heatmap")
-      .on("postgres_changes", { 
-        event: "*", 
-        schema: "public", 
-        table: "complaints" 
-      }, () => {
-        // Instant update without delay
-        fetchComplaints();
-      })
+      .channel("realtime-heatmap-complaints")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "complaints" },
+        () => {
+          fetchComplaints();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -255,129 +240,109 @@ export default function ComplaintHeatmap({
     };
   }, []);
 
-  // Loading shimmer skeleton
+  // Loading state
   if (loading) {
     return (
-      <div 
-        className="relative rounded-lg overflow-hidden border border-border bg-muted animate-pulse" 
+      <div
+        className="relative rounded-lg overflow-hidden border border-border bg-muted animate-pulse flex items-center justify-center"
         style={{ height }}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-muted via-muted/50 to-muted" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center space-y-3">
-            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mx-auto" />
-            <p className="text-sm text-muted-foreground font-medium">Loading map...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Fallback view if map fails to initialize
-  if (mapError) {
-    return (
-      <div 
-        className="relative flex items-center justify-center rounded-lg border border-border bg-gradient-to-br from-primary/5 via-background to-primary/10 overflow-hidden" 
-        style={{ height }}
-      >
-        <div className="absolute inset-0 bg-[url('https://api.mapbox.com/styles/v1/mapbox/light-v11/static/77.2090,28.6139,11/800x600?access_token=pk.example')] opacity-10 bg-cover bg-center blur-sm" />
-        <div className="relative text-center space-y-3 px-4 z-10">
-          <div className="text-6xl">🗺️</div>
-          <h3 className="text-xl font-semibold">Heatmap coming soon...</h3>
-          <p className="text-sm text-muted-foreground max-w-md">
-            We're working on loading the interactive map. Please refresh the page or check back later.
+        <div className="text-center space-y-3">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mx-auto" />
+          <p className="text-sm text-muted-foreground font-medium">
+            🗺️ Loading heatmap data...
           </p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="mt-3 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-          >
-            Refresh Page
-          </button>
         </div>
       </div>
     );
   }
 
+  // Error state
   if (error) {
     return (
-      <div 
-        className="flex items-center justify-center rounded-lg border border-destructive/50 bg-destructive/10" 
+      <div
+        className="flex items-center justify-center rounded-lg border border-destructive/50 bg-destructive/10"
         style={{ height }}
       >
         <div className="text-center space-y-2 px-4">
           <div className="text-4xl">⚠️</div>
-          <h3 className="text-lg font-semibold text-destructive">Failed to load data</h3>
+          <h3 className="text-lg font-semibold text-destructive">
+            Failed to load heatmap
+          </h3>
           <p className="text-sm text-muted-foreground">{error}</p>
-          <button 
+          <Button
             onClick={fetchComplaints}
-            className="mt-2 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+            variant="outline"
+            size="sm"
+            className="mt-2"
           >
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
+  // Empty state
   if (!complaints.length && !loading) {
     return (
-      <div 
-        className="flex items-center justify-center rounded-lg border border-border bg-card" 
+      <div
+        className="flex items-center justify-center rounded-lg border border-border bg-card"
         style={{ height }}
       >
         <div className="text-center space-y-2 px-4">
           <div className="text-5xl">🗺️</div>
-          <h3 className="text-lg font-semibold">No complaints yet</h3>
+          <h3 className="text-lg font-semibold">No reports yet</h3>
           <p className="text-sm text-muted-foreground max-w-md">
-            Once reports are submitted, they'll appear on the heatmap
+            Once reports are submitted, they'll appear on the heatmap in real-time
           </p>
         </div>
       </div>
     );
   }
 
+  // Render heatmap
   return (
     <div className="relative w-full">
       {showControls && (
         <div className="absolute top-3 right-3 z-[1000] flex gap-2">
           <div className="bg-card/95 backdrop-blur-sm border border-border rounded-lg shadow-lg p-1.5 flex gap-1">
-            <button
+            <Button
               onClick={() => setViewMode("heatmap")}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
-                viewMode === "heatmap" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
-              }`}
-              aria-label="Heatmap view"
+              variant={viewMode === "heatmap" ? "default" : "ghost"}
+              size="sm"
+              className="flex items-center gap-2"
             >
               <span>🔥</span>
               <span className="hidden sm:inline">Heat</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setViewMode("markers")}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
-                viewMode === "markers" ? "bg-primary text-primary-foreground" : "hover:bg-accent"
-              }`}
-              aria-label="Marker view"
+              variant={viewMode === "markers" ? "default" : "ghost"}
+              size="sm"
+              className="flex items-center gap-2"
             >
               <span>📍</span>
               <span className="hidden sm:inline">Markers</span>
-            </button>
+            </Button>
           </div>
           <div className="bg-card/95 backdrop-blur-sm border border-border rounded-lg shadow-lg p-1.5">
-            <button
+            <Button
               onClick={fetchComplaints}
-              className="px-3 py-1.5 text-sm font-medium rounded-md transition-colors hover:bg-accent flex items-center gap-2"
-              aria-label="Refresh map"
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-2"
             >
               <span>🔄</span>
               <span className="hidden sm:inline">Refresh</span>
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       <div
         ref={containerRef}
-        className="rounded-lg overflow-hidden border border-border shadow-sm bg-muted w-full"
+        className="rounded-2xl overflow-hidden border border-border shadow-md bg-muted w-full"
         style={{ height, minHeight: height }}
         role="application"
         aria-label="Complaint heatmap"
@@ -385,7 +350,7 @@ export default function ComplaintHeatmap({
 
       <div className="mt-3 flex flex-wrap items-center gap-3 justify-center text-xs sm:text-sm">
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-[#ef4444]" />
+          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-destructive" />
           <span className="text-muted-foreground">High Density</span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -394,11 +359,13 @@ export default function ComplaintHeatmap({
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-[#10b981]" />
-          <span className="text-muted-foreground">Clean</span>
+          <span className="text-muted-foreground">Clean Areas</span>
         </div>
         <div className="hidden sm:flex items-center gap-2">
           <span className="text-muted-foreground">|</span>
-          <span className="font-semibold text-foreground">{complaints.length}</span>
+          <span className="font-semibold text-foreground">
+            {complaints.length}
+          </span>
           <span className="text-muted-foreground">reports</span>
         </div>
       </div>

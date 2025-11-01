@@ -22,6 +22,9 @@ interface ComplaintMapProps {
   adminView?: boolean;
 }
 
+const DEFAULT_CENTER: [number, number] = [28.6139, 77.209]; // Delhi
+const DEFAULT_ZOOM = 12;
+
 export default function ComplaintMap({
   height = "600px",
   showControls = true,
@@ -51,17 +54,20 @@ export default function ComplaintMap({
         .not("latitude", "is", null)
         .not("longitude", "is", null)
         .order("created_at", { ascending: false })
-        .limit(500);
+        .limit(1000);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error:", error);
+        throw error;
+      }
 
       const validComplaints = (data || [])
         .map((c: any) => ({
           id: c.id,
           title: c.title,
           location_name: c.location_name,
-          latitude: parseFloat(c.latitude),
-          longitude: parseFloat(c.longitude),
+          latitude: parseFloat(String(c.latitude)),
+          longitude: parseFloat(String(c.longitude)),
           status: c.status,
           priority: c.priority,
         }))
@@ -75,13 +81,14 @@ export default function ComplaintMap({
             c.longitude <= 180
         );
 
+      console.log(`✅ Loaded ${validComplaints.length} valid complaints`);
       setComplaints(validComplaints);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching complaints:", err);
-      setError("Failed to load map data");
+      setError(err.message || "Failed to load map data");
       toast({
-        title: "Error",
-        description: "Failed to load heatmap data",
+        title: "Error Loading Heatmap",
+        description: "Could not fetch complaint data. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -96,32 +103,40 @@ export default function ComplaintMap({
     const initMap = () => {
       try {
         const map = L.map(containerRef.current!, {
-          center: [28.6139, 77.209],
-          zoom: 12,
+          center: DEFAULT_CENTER,
+          zoom: DEFAULT_ZOOM,
           scrollWheelZoom: true,
           zoomControl: true,
           preferCanvas: true,
+          attributionControl: true,
         });
 
+        // Use reliable OSM tile provider
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: "&copy; OpenStreetMap",
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
           maxZoom: 19,
+          minZoom: 3,
         }).addTo(map);
 
         mapRef.current = map;
         mapInitializedRef.current = true;
 
-        setTimeout(() => map.invalidateSize(), 100);
+        // Ensure map renders correctly
+        setTimeout(() => {
+          map.invalidateSize();
+          console.log("✅ Map initialized");
+        }, 150);
       } catch (err) {
-        console.error("Map initialization error:", err);
+        console.error("❌ Map initialization error:", err);
         setError("Failed to initialize map");
       }
     };
 
-    // Use requestAnimationFrame for smoother initialization
-    requestAnimationFrame(initMap);
+    // Delay initialization slightly to ensure DOM is ready
+    const timer = setTimeout(initMap, 50);
 
     return () => {
+      clearTimeout(timer);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -144,7 +159,10 @@ export default function ComplaintMap({
     markersRef.current.forEach((m) => map.removeLayer(m));
     markersRef.current = [];
 
-    if (complaints.length === 0) return;
+    if (complaints.length === 0) {
+      map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+      return;
+    }
 
     // 🔥 Heatmap mode
     if (viewMode === "heatmap" && (L as any).heatLayer) {
@@ -158,7 +176,8 @@ export default function ComplaintMap({
         radius: 25,
         blur: 20,
         maxZoom: 17,
-        minOpacity: 0.5,
+        minOpacity: 0.4,
+        max: 1.0,
         gradient: {
           0.0: "#10b981",
           0.4: "#3b82f6",
@@ -168,9 +187,10 @@ export default function ComplaintMap({
       }).addTo(map);
 
       heatLayerRef.current = heatLayer;
+      console.log(`🔥 Heatmap rendered with ${heatPoints.length} points`);
     }
 
-    // 📍 Marker mode
+    // 📍 Markers (always render, visibility controlled by viewMode)
     complaints.forEach((c) => {
       const statusColor =
         c.status === "resolved"
@@ -184,7 +204,7 @@ export default function ComplaintMap({
         color: "#fff",
         weight: 2,
         fillColor: statusColor,
-        fillOpacity: viewMode === "markers" ? 0.9 : 0.8,
+        fillOpacity: viewMode === "markers" ? 0.9 : 0.6,
       })
         .bindPopup(`
           <div style="min-width: 180px;">
@@ -201,17 +221,24 @@ export default function ComplaintMap({
       markersRef.current.push(marker);
     });
 
-    // Adjust map bounds - ensure all markers are visible
+    // Auto-center and zoom to show all markers
     if (complaints.length === 1) {
-      map.setView([complaints[0].latitude, complaints[0].longitude], 14);
+      map.setView([complaints[0].latitude, complaints[0].longitude], 14, {
+        animate: true,
+      });
     } else if (complaints.length > 1) {
       const bounds = L.latLngBounds(
         complaints.map((c) => [c.latitude, c.longitude])
       );
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      map.fitBounds(bounds, { 
+        padding: [50, 50], 
+        maxZoom: 15,
+        animate: true,
+      });
     }
 
-    requestAnimationFrame(() => map.invalidateSize());
+    // Ensure map renders correctly after updates
+    setTimeout(() => map.invalidateSize(), 100);
   }, [complaints, loading, viewMode]);
 
   // 🔁 Fetch data and subscribe to real-time updates
@@ -223,9 +250,14 @@ export default function ComplaintMap({
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "complaints" },
-        () => fetchComplaints()
+        (payload) => {
+          console.log("🔄 Real-time update:", payload.eventType);
+          fetchComplaints();
+        }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("📡 Realtime status:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);

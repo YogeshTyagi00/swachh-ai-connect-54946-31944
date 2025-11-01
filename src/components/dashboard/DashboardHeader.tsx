@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Leaf, LogOut, User, Coins } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function DashboardHeader() {
   const { user, logout } = useAuth();
@@ -38,7 +39,7 @@ export default function DashboardHeader() {
               <Leaf className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">SwachhAI</h1>
+              <Link to="/" className="text-xs text-muted-foreground hover:underline">स्वच्छ भारत</Link>
               <p className="text-xs text-muted-foreground">स्वच्छ भारत</p>
             </div>
           </div>

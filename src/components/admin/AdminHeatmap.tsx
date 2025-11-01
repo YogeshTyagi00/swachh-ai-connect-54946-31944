@@ -36,6 +36,22 @@ function AutoRefresh({ onRefresh }: { onRefresh: () => void }) {
   return null;
 }
 
+function MapInitializer({ reports }: { reports: Report[] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    setTimeout(() => {
+      map.invalidateSize();
+      if (reports.length > 1) {
+        const bounds = reports.map(r => [Number(r.latitude), Number(r.longitude)] as [number, number]);
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      }
+    }, 100);
+  }, [map, reports]);
+
+  return null;
+}
+
 const getSeverityColor = (status: string) => {
   switch (status) {
     case "resolved":
@@ -119,10 +135,14 @@ export default function AdminHeatmap() {
   }
 
   const defaultCenter: [number, number] = [28.6139, 77.209];
-  const mapCenter: [number, number] =
-    reports.length > 0
-      ? [Number(reports[0].latitude), Number(reports[0].longitude)]
-      : defaultCenter;
+  
+  // Calculate center from all reports
+  const mapCenter: [number, number] = reports.length > 0
+    ? [
+        reports.reduce((sum, r) => sum + Number(r.latitude), 0) / reports.length,
+        reports.reduce((sum, r) => sum + Number(r.longitude), 0) / reports.length
+      ]
+    : defaultCenter;
 
   return (
     <Card>
@@ -147,12 +167,13 @@ export default function AdminHeatmap() {
           <MapContainer
             // @ts-ignore - leaflet types issue
             center={mapCenter}
-            zoom={12}
-            scrollWheelZoom={false}
+            zoom={reports.length > 0 ? 12 : 11}
+            scrollWheelZoom={true}
             style={{ height: "100%", width: "100%" }}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <AutoRefresh onRefresh={fetchReports} />
+            <MapInitializer reports={reports} />
             {reports.map((report) => {
               const position: [number, number] = [
                 Number(report.latitude),

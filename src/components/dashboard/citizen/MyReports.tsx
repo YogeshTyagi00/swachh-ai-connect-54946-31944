@@ -40,8 +40,6 @@ export default function MyReports() {
     location: "",
     latitude: 0,
     longitude: 0,
-    priority: "medium" as "low" | "medium" | "high",
-    category: "general" as "general" | "illegal_dumping" | "overflowing_bin" | "hazardous_waste" | "littering",
   });
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -191,7 +189,7 @@ export default function MyReports() {
           latitude: formData.latitude,
           longitude: formData.longitude,
           image_url: imageUrl,
-          priority: formData.priority,
+          priority: "medium",
           status: "pending",
           coins_earned: 10,
         })
@@ -209,7 +207,7 @@ export default function MyReports() {
         });
         
         // Reset form and close dialog
-        setFormData({ title: "", description: "", location: "", latitude: 0, longitude: 0, priority: "medium", category: "general" });
+        setFormData({ title: "", description: "", location: "", latitude: 0, longitude: 0 });
         setImageFile(null);
         setIsOpen(false);
       }
@@ -354,35 +352,6 @@ export default function MyReports() {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     required
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <select
-                    id="category"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
-                    className="w-full px-3 py-2 border rounded-md"
-                    required
-                  >
-                    <option value="general">General</option>
-                    <option value="illegal_dumping">Illegal Dumping</option>
-                    <option value="overflowing_bin">Overflowing Bin</option>
-                    <option value="hazardous_waste">Hazardous Waste</option>
-                    <option value="littering">Littering</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="priority">Priority Level</Label>
-                  <select
-                    id="priority"
-                    value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: e.target.value as "low" | "medium" | "high" })}
-                    className="w-full px-3 py-2 border rounded-md"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="image">Image (Optional)</Label>

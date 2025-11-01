@@ -93,27 +93,33 @@ export default function ComplaintMap({
   useEffect(() => {
     if (mapInitializedRef.current || !containerRef.current) return;
 
-    try {
-      const map = L.map(containerRef.current, {
-        center: [28.6139, 77.209],
-        zoom: 12,
-        scrollWheelZoom: true,
-        zoomControl: true,
-      });
+    const initMap = () => {
+      try {
+        const map = L.map(containerRef.current!, {
+          center: [28.6139, 77.209],
+          zoom: 12,
+          scrollWheelZoom: true,
+          zoomControl: true,
+          preferCanvas: true,
+        });
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap",
-        maxZoom: 19,
-      }).addTo(map);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "&copy; OpenStreetMap",
+          maxZoom: 19,
+        }).addTo(map);
 
-      mapRef.current = map;
-      mapInitializedRef.current = true;
+        mapRef.current = map;
+        mapInitializedRef.current = true;
 
-      setTimeout(() => map.invalidateSize(), 200);
-    } catch (err) {
-      console.error("Map initialization error:", err);
-      setError("Failed to initialize map");
-    }
+        setTimeout(() => map.invalidateSize(), 100);
+      } catch (err) {
+        console.error("Map initialization error:", err);
+        setError("Failed to initialize map");
+      }
+    };
+
+    // Use requestAnimationFrame for smoother initialization
+    requestAnimationFrame(initMap);
 
     return () => {
       if (mapRef.current) {
@@ -195,17 +201,17 @@ export default function ComplaintMap({
       markersRef.current.push(marker);
     });
 
-    // Adjust map bounds
+    // Adjust map bounds - ensure all markers are visible
     if (complaints.length === 1) {
       map.setView([complaints[0].latitude, complaints[0].longitude], 14);
-    } else {
+    } else if (complaints.length > 1) {
       const bounds = L.latLngBounds(
         complaints.map((c) => [c.latitude, c.longitude])
       );
-      map.fitBounds(bounds, { padding: [50, 50] });
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
     }
 
-    setTimeout(() => map.invalidateSize(), 100);
+    requestAnimationFrame(() => map.invalidateSize());
   }, [complaints, loading, viewMode]);
 
   // 🔁 Fetch data and subscribe to real-time updates

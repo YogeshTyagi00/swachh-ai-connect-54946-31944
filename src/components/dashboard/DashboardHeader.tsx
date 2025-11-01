@@ -34,15 +34,17 @@ export default function DashboardHeader() {
     <header className="bg-card border-b sticky top-0 z-40 backdrop-blur-sm">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2">
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-br from-primary to-primary/70 rounded-full p-2">
               <Leaf className="h-6 w-6 text-white" />
             </div>
             <div>
-              <Link to="/" className="text-xs text-muted-foreground hover:underline">स्वच्छ भारत</Link>
+              <h1 className="text-xl font-bold">SwachhAI</h1>
               <p className="text-xs text-muted-foreground">स्वच्छ भारत</p>
             </div>
           </div>
+          </Link>
 
           <div className="flex items-center gap-4">
             {user?.role === "citizen" && (

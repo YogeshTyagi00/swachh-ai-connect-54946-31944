@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import "leaflet.heat";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 
@@ -42,7 +41,7 @@ export default function ComplaintMap({
   const mapInitializedRef = useRef(false);
   const { toast } = useToast();
 
-  // 🧭 Fetch complaints data
+  // 🧭 Fetch complaints
   const fetchComplaints = async () => {
     try {
       setLoading(true);
@@ -56,18 +55,15 @@ export default function ComplaintMap({
         .order("created_at", { ascending: false })
         .limit(1000);
 
-      if (error) {
-        console.error("Supabase error:", error);
-        throw error;
-      }
+      if (error) throw error;
 
-      const validComplaints = (data || [])
+      const valid = (data || [])
         .map((c: any) => ({
           id: c.id,
           title: c.title,
           location_name: c.location_name,
-          latitude: parseFloat(String(c.latitude)),
-          longitude: parseFloat(String(c.longitude)),
+          latitude: parseFloat(c.latitude),
+          longitude: parseFloat(c.longitude),
           status: c.status,
           priority: c.priority,
         }))
@@ -81,14 +77,14 @@ export default function ComplaintMap({
             c.longitude <= 180
         );
 
-      console.log(`✅ Loaded ${validComplaints.length} valid complaints`);
-      setComplaints(validComplaints);
+      setComplaints(valid);
+      console.log(`✅ Loaded ${valid.length} complaints`);
     } catch (err: any) {
       console.error("Error fetching complaints:", err);
-      setError(err.message || "Failed to load map data");
+      setError(err.message);
       toast({
         title: "Error Loading Heatmap",
-        description: "Could not fetch complaint data. Please try again.",
+        description: "Could not fetch complaint data.",
         variant: "destructive",
       });
     } finally {
@@ -100,52 +96,43 @@ export default function ComplaintMap({
   useEffect(() => {
     if (mapInitializedRef.current || !containerRef.current) return;
 
-    const initMap = () => {
+    const initMap = async () => {
       try {
+        // ✅ Ensure leaflet.heat plugin is loaded AFTER Leaflet
+        await import("leaflet.heat");
+        console.log("🔥 leaflet.heat loaded:", typeof (L as any).heatLayer);
+
         const map = L.map(containerRef.current!, {
           center: DEFAULT_CENTER,
           zoom: DEFAULT_ZOOM,
           scrollWheelZoom: true,
           zoomControl: true,
           preferCanvas: true,
-          attributionControl: true,
         });
 
-        // Use reliable OSM tile provider
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-          maxZoom: 19,
-          minZoom: 3,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         }).addTo(map);
 
         mapRef.current = map;
         mapInitializedRef.current = true;
 
-        // Ensure map renders correctly
-        setTimeout(() => {
-          map.invalidateSize();
-          console.log("✅ Map initialized");
-        }, 150);
+        setTimeout(() => map.invalidateSize(), 200);
       } catch (err) {
-        console.error("❌ Map initialization error:", err);
+        console.error("❌ Map init error:", err);
         setError("Failed to initialize map");
       }
     };
 
-    // Delay initialization slightly to ensure DOM is ready
-    const timer = setTimeout(initMap, 50);
+    initMap();
 
     return () => {
-      clearTimeout(timer);
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-        mapInitializedRef.current = false;
-      }
+      if (mapRef.current) mapRef.current.remove();
     };
   }, []);
 
-  // 🟢 Update map layers
+  // 🟢 Update layers
   useEffect(() => {
     if (!mapRef.current || !mapInitializedRef.current || loading) return;
 
@@ -159,25 +146,21 @@ export default function ComplaintMap({
     markersRef.current.forEach((m) => map.removeLayer(m));
     markersRef.current = [];
 
-    if (complaints.length === 0) {
-      map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-      return;
-    }
+    if (complaints.length === 0) return;
 
     // 🔥 Heatmap mode
     if (viewMode === "heatmap" && (L as any).heatLayer) {
       const heatPoints = complaints.map((c) => [
         c.latitude,
         c.longitude,
-        c.priority === "high" ? 1.0 : c.priority === "medium" ? 0.7 : 0.5,
+        c.priority === "high" ? 1 : c.priority === "medium" ? 0.7 : 0.4,
       ]);
 
-      const heatLayer = (L as any).heatLayer(heatPoints, {
+      const heat = (L as any).heatLayer(heatPoints, {
         radius: 25,
-        blur: 20,
+        blur: 15,
         maxZoom: 17,
         minOpacity: 0.4,
-        max: 1.0,
         gradient: {
           0.0: "#10b981",
           0.4: "#3b82f6",
@@ -186,11 +169,13 @@ export default function ComplaintMap({
         },
       }).addTo(map);
 
-      heatLayerRef.current = heatLayer;
-      console.log(`🔥 Heatmap rendered with ${heatPoints.length} points`);
+      heatLayerRef.current = heat;
+      console.log("🔥 Heatmap added:", heatPoints.length);
+    } else if (viewMode === "heatmap") {
+      console.warn("⚠️ leaflet.heat not loaded!");
     }
 
-    // 📍 Markers (always render, visibility controlled by viewMode)
+    // 📍 Markers
     complaints.forEach((c) => {
       const statusColor =
         c.status === "resolved"
@@ -201,64 +186,41 @@ export default function ComplaintMap({
 
       const marker = L.circleMarker([c.latitude, c.longitude], {
         radius: viewMode === "markers" ? 8 : 5,
+        fillColor: statusColor,
         color: "#fff",
         weight: 2,
-        fillColor: statusColor,
-        fillOpacity: viewMode === "markers" ? 0.9 : 0.6,
-      })
-        .bindPopup(`
-          <div style="min-width: 180px;">
-            <strong>${c.title}</strong><br/>
-            <span style="font-size: 12px; color: #666;">${
-              c.location_name || "Unknown location"
-            }</span><br/>
-            <small>Priority: ${c.priority}</small><br/>
-            <small>Status: ${c.status}</small>
-          </div>
-        `)
-        .addTo(map);
+        fillOpacity: 0.8,
+      }).bindPopup(`
+        <strong>${c.title}</strong><br/>
+        <small>${c.location_name || "Unknown location"}</small><br/>
+        <small>Priority: ${c.priority}</small><br/>
+        <small>Status: ${c.status}</small>
+      `);
 
+      marker.addTo(map);
       markersRef.current.push(marker);
     });
 
-    // Auto-center and zoom to show all markers
-    if (complaints.length === 1) {
-      map.setView([complaints[0].latitude, complaints[0].longitude], 14, {
-        animate: true,
-      });
-    } else if (complaints.length > 1) {
+    // Fit bounds
+    if (complaints.length > 1) {
       const bounds = L.latLngBounds(
         complaints.map((c) => [c.latitude, c.longitude])
       );
-      map.fitBounds(bounds, { 
-        padding: [50, 50], 
-        maxZoom: 15,
-        animate: true,
-      });
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
     }
 
-    // Ensure map renders correctly after updates
-    setTimeout(() => map.invalidateSize(), 100);
-  }, [complaints, loading, viewMode]);
+    setTimeout(() => map.invalidateSize(), 150);
+  }, [complaints, viewMode, loading]);
 
-  // 🔁 Fetch data and subscribe to real-time updates
+  // 🔁 Realtime updates
   useEffect(() => {
     fetchComplaints();
-
     const channel = supabase
-      .channel("realtime-heatmap-complaints")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "complaints" },
-        (payload) => {
-          console.log("🔄 Real-time update:", payload.eventType);
-          fetchComplaints();
-        }
-      )
-      .subscribe((status) => {
-        console.log("📡 Realtime status:", status);
-      });
-
+      .channel("realtime-heatmap")
+      .on("postgres_changes", { event: "*", schema: "public", table: "complaints" }, () => {
+        fetchComplaints();
+      })
+      .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
@@ -378,5 +340,4 @@ export default function ComplaintMap({
       </div>
     </div>
   );
-  
 }

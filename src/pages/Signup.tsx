@@ -28,10 +28,6 @@ export default function Signup() {
         password: formData.password,
       }));
       
-      toast({
-        title: "Verification code sent!",
-        description: "Please check your email for the verification code.",
-      });
       navigate("/verify-email");
     } catch (error) {
       toast({

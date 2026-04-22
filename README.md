@@ -1,166 +1,145 @@
 <div align="center">
 
-<img src="https://img.shields.io/badge/Smart%20India%20Hackathon-2024-orange?style=for-the-badge&logo=india&logoColor=white" />
-<img src="https://img.shields.io/badge/Status-MVP%20%2F%20Active-brightgreen?style=for-the-badge" />
-<img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" />
+# ♻️ EcoTrack
 
-# ♻️ Swachh AI Connect
+### A Civic Tech Platform for Smarter Waste Management
 
-### AI-Powered Intelligent Waste Detection & Segregation System
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org)
+[![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?style=flat&logo=supabase)](https://supabase.com)
+[![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=flat&logo=vite)](https://vitejs.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-*Problem Statement: Waste Segregation & Smart City Integration*
-
-[🌐 Live Demo](https://intelligent-waste-segregation-system.streamlit.app) · [📂 Repository](https://github.com/YogeshTyagi00/swachh-ai-connect-54946-31944) · [🐛 Report Bug](https://github.com/YogeshTyagi00/swachh-ai-connect-54946-31944/issues)
+[🌐 Live Demo](#) · [🐛 Report Bug](../../issues) · [💡 Request Feature](../../issues)
 
 </div>
 
 ---
 
-## 📌 Overview
+## Overview
 
-**Swachh AI Connect** is a real-time, AI-powered waste detection and classification system developed as part of the **Smart India Hackathon (SIH)**. The system uses computer vision and deep learning to automatically identify and categorize waste from live video feeds or uploaded images — eliminating the need for manual segregation and enabling smarter waste management at scale.
-
-> 🎯 **Goal:** Bridge the gap between citizen-level waste generation and efficient municipal waste management using accessible AI technology.
+EcoTrack is a civic engagement platform that empowers citizens to report environmental and waste-related issues in their communities. Citizens earn **Green Coins** for verified reports and eco-friendly actions, while admins get real-time analytics and tools to manage and resolve complaints efficiently.
 
 ---
 
-## 🚨 Problem Statement
+## Features
 
-Waste mismanagement is a critical challenge across India, particularly in rural and semi-urban regions:
+**For Citizens**
+- Submit waste/cleanliness complaints with photo and GPS location
+- View a live heatmap of complaint hotspots in your area
+- Earn Green Coins for reports and eco-actions
+- Track complaint status (pending → in progress → resolved)
+- Compete on a community leaderboard
+- Redeem Green Coins for rewards
 
-- Manual segregation is **inconsistent, slow, and error-prone**
-- Awareness of waste categories (recyclable vs hazardous) is **extremely low**
-- Municipal bodies lack **real-time data** to deploy cleaning staff efficiently
-- Existing apps like Swachh Bharat require manual photo uploads, leading to **poor adoption**
-
----
-
-## 💡 Solution
-
-Swachh AI Connect automates the entire detection pipeline:
-
-```
-📷 Live Input  →  🧠 AI Model  →  🏷️ Classification  →  📊 Dashboard Alert
-```
-
-The system captures video or images, runs them through an optimized ML model, classifies waste in real time, and surfaces actionable data on an admin dashboard — all without any manual intervention.
+**For Admins**
+- Overview dashboard with charts and analytics
+- Manage and update complaint statuses
+- View complaint heatmap across the city
+- Manage Green Coins and reward redemptions
+- Access collection center locations
 
 ---
 
-## ✨ Key Features
-
-| Feature | Description |
-|---|---|
-| 🎥 **Real-Time Detection** | Processes live webcam/video feed for instant waste identification |
-| 🧠 **AI Classification** | Categorizes waste into Recyclable, Non-Recyclable, and Hazardous |
-| 📍 **Geo-Tagging** | Associates detected waste with GPS coordinates for location tracking |
-| 🌐 **Multi-Language Support** | Designed for accessibility across diverse regions and languages |
-| 📊 **Admin Dashboard** | Real-time monitoring, analytics, and alerts for municipal authorities |
-| ⚡ **Optimized Inference** | ONNX model format for fast, lightweight, deployment-ready predictions |
-
----
-
-## 🏗️ Tech Stack
-
-<div align="center">
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| **Frontend / UI** | Streamlit |
-| **Backend** | Python, Flask |
-| **ML Framework** | PyTorch |
-| **Model Format** | ONNX (optimized inference) |
-| **Input Sources** | Webcam, Image Upload |
-| **Deployment** | Streamlit Cloud |
-
-</div>
-
----
-
-## 🔍 How It Works
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                                                         │
-│   1. Input        →   Webcam stream or image upload     │
-│   2. Preprocess   →   Frame extraction & normalization  │
-│   3. Inference    →   PyTorch / ONNX model prediction   │
-│   4. Classify     →   Recyclable / Non-Recyclable /     │
-│                        Hazardous + confidence score     │
-│   5. Output       →   Visual overlay + dashboard alert  │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
+| Frontend | React 18, TypeScript, Vite |
+| Styling | Tailwind CSS, shadcn/ui, Radix UI |
+| Maps | Leaflet, react-leaflet, leaflet.heat |
+| Charts | Recharts |
+| Backend & Auth | Supabase (PostgreSQL, Auth, Storage) |
+| State Management | TanStack Query (React Query) |
+| Forms | React Hook Form + Zod |
 
 ---
 
-## 🚀 Getting Started
+## Database Schema
+
+| Table | Description |
+|---|---|
+| `profiles` | User profiles with Green Coins balance |
+| `complaints` | Waste/cleanliness reports with geo-coordinates |
+| `waste_reports` | Categorized waste submissions (biodegradable, recyclable, hazardous, general) |
+| `eco_actions` | Available eco-friendly actions citizens can complete |
+| `user_eco_actions` | Completed actions per user |
+| `green_coins_transactions` | Full transaction history for coin earn/spend |
+| `rewards` | Redeemable rewards catalog |
+| `reward_redemptions` | Redemption records per user |
+| `collection_centers` | Geo-tagged waste collection center locations |
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- Python 3.8+
-- pip
+- Node.js 18+
+- A [Supabase](https://supabase.com) project
 
 ### Installation
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/YogeshTyagi00/swachh-ai-connect-54946-31944.git
-cd swachh-ai-connect-54946-31944
+# 1. Clone the repo
+git clone https://github.com/your-username/ecotrack.git
+cd ecotrack
 
 # 2. Install dependencies
-pip install -r requirements.txt
+npm install
 
-# 3. Run the application
-streamlit run app.py
+# 3. Set up environment variables
+cp .env.example .env
+# Fill in your Supabase URL and anon key
+
+# 4. Run the dev server
+npm run dev
 ```
 
-The app will be available at `http://localhost:8501`
+### Environment Variables
 
----
-
-## 📂 Project Structure
-
+```env
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
-swachh-ai-connect/
-│
-├── app.py              # Main Streamlit application entry point
-├── train.py            # Model training script
-├── helper.py           # Utility functions & preprocessing helpers
-├── settings.py         # Configuration & constants
-├── requirements.txt    # Python dependencies
-│
-└── weights/            # Pre-trained model weights (.pt / .onnx)
+
+### Database Setup
+
+Apply the migrations in `supabase/migrations/` to your Supabase project:
+
+```bash
+supabase db push
 ```
 
 ---
 
-## 🌐 Live Demo
+## Project Structure
 
-🔗 **[https://intelligent-waste-segregation-system.streamlit.app](https://intelligent-waste-segregation-system.streamlit.app)**
-
-> Upload a waste image or enable your webcam to see real-time classification in action.
-
----
-
-## 🗺️ Roadmap & Future Scope
-
-- [ ] **Mobile App** — Android/iOS integration for field use by sanitation workers
-- [ ] **Edge Deployment** — Optimize for low-resource devices in rural environments
-- [ ] **Drone Integration** — Aerial waste monitoring over large areas
-- [ ] **Smart City API** — Integration with municipal and smart city management systems
-- [ ] **Expanded Categories** — More granular waste classification (e-waste, biomedical, etc.)
-- [ ] **Continuous Learning** — Automated retraining pipeline using incoming live data
-- [ ] **Larger Datasets** — Improved accuracy through diverse, region-specific training data
+```
+src/
+├── components/
+│   ├── admin/          # Admin-specific components
+│   ├── auth/           # Auth forms
+│   ├── dashboard/      # Citizen & admin dashboard widgets
+│   ├── maps/           # Leaflet map components (heatmap, complaint map)
+│   └── ui/             # shadcn/ui component library
+├── contexts/           # AuthContext
+├── integrations/       # Supabase client & generated types
+├── pages/              # Route-level page components
+└── services/           # Supabase service layer
+```
 
 ---
 
-## 📄 License
+## User Roles
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+- **Citizen** — Can submit reports, complete eco-actions, view heatmap, and redeem rewards
+- **Admin** — Can manage complaints, view analytics, and administer Green Coins
+
+Role-based access is enforced via Supabase RLS policies and a `user_roles` table.
 
 ---
 
-<div align="center">
+## License
 
-</div>
+MIT License. See [LICENSE](LICENSE) for details.

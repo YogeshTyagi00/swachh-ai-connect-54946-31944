@@ -1,6 +1,6 @@
 <div align="center">
 
-# ♻️ EcoTrack
+# ♻️ Swachh Ai
 
 ### A Civic Tech Platform for Smarter Waste Management
 
@@ -82,7 +82,7 @@ EcoTrack is a civic engagement platform that empowers citizens to report environ
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/your-username/ecotrack.git
+git clone https://github.com/YogeshTyagi00/swachh-ai-connect-54946-31944.git
 cd ecotrack
 
 # 2. Install dependencies
